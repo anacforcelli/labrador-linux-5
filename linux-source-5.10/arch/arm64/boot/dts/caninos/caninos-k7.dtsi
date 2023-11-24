@@ -202,6 +202,8 @@
 				gpio-ranges = <&pinctrl 0 0 32>;
 				gpio-controller;
 				#gpio-cells = <2>;
+				interrupt-controller;
+				#interrupt-cells = <2>;
 			};
 			gpiob: bank@1 {
 				gpio-label = "GPIOB";
@@ -209,6 +211,8 @@
 				gpio-ranges = <&pinctrl 0 32 32>;
 				gpio-controller;
 				#gpio-cells = <2>;
+				interrupt-controller;
+				#interrupt-cells = <2>;
 			};
 			gpioc: bank@2 {
 				gpio-label = "GPIOC";
@@ -216,6 +220,8 @@
 				gpio-ranges = <&pinctrl 0 64 32>;
 				gpio-controller;
 				#gpio-cells = <2>;
+				interrupt-controller;
+				#interrupt-cells = <2>;
 			};
 			gpiod: bank@3 {
 				gpio-label = "GPIOD";
@@ -223,6 +229,8 @@
 				gpio-ranges = <&pinctrl 0 96 32>;
 				gpio-controller;
 				#gpio-cells = <2>;
+				interrupt-controller;
+				#interrupt-cells = <2>;
 			};
 			gpioe: bank@4 {
 				gpio-label = "GPIOE";
@@ -230,6 +238,8 @@
 				gpio-ranges = <&pinctrl 0 128 8>;
 				gpio-controller;
 				#gpio-cells = <2>;
+				interrupt-controller;
+				#interrupt-cells = <2>;
 			};
 			i2c2_state_gpio: i2c2_gpio {
 				function = "i2c2";

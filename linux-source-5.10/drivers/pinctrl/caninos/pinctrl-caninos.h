@@ -63,6 +63,16 @@
 #define	GPIO_CTLR_SAMPLE_CLK_32K (0x0 << 2)
 #define	GPIO_CTLR_SAMPLE_CLK_24M (0x1 << 2)
 
+/* INT */
+#define INTC_GPIOCTL 0x204
+#define INTC_GPIOCTL_GPIOX_EN(x) (1 << 5*x)
+#define INTC_GPIOCTL_GPIOX_PD(x) (1 << (5*x + 1))
+#define INTC_GPIOCTL_GPIOX_CLK(x) (1 << (5*x + 2))
+#define INTC_GPIOX_PD(x) 	(0x208 + 0x8*x)
+#define INTC_GPIOX_MSK(x) 	(0x20c + 0x8*x)
+#define INTC_GPIOX_TYPE0(x) (0x230 + 0x8*x)
+#define INTC_GPIOX_TYPE1(x)	(0x234 + 0x8*x)
+
 /* TYPE */
 #define GPIO_INT_TYPE_MASK    (0x3)
 #define GPIO_INT_TYPE_HIGH    (0x0)
@@ -97,12 +107,14 @@ struct caninos_gpio_chip
 {
 	struct caninos_pinctrl *pinctrl;
 	struct gpio_chip gpio_chip;
+	struct irq_chip irq_chip;
 	char label[BANK_LABEL_LEN];
 	volatile u32 *inen;
 	volatile u32 *outen;
 	volatile u32 *dat;
 	raw_spinlock_t lock;
 	int addr, npins;
+	unsigned int irq;
 	u32 mask;
 };
 
