@@ -478,15 +478,6 @@ static const struct pinconf_ops caninos_pconf_ops = {
 	.pin_config_set = caninos_pin_config_set,
 };
 
-static const struct irq_chip caninos_gpio_irq_chip = {
-	.irq_ack = caninos_gpio_irq_ack,
-	.irq_enable = caninos_gpio_irq_enable,
-	.irq_disable = caninos_gpio_irq_disable,
-	.irq_set_type = caninos_gpio_irq_set_type,
-	.irq_mask = caninos_gpio_irq_mask,
-	.irq_unmask = caninos_gpio_irq_unmask,
-};
-
 static int caninos_gpiolib_register_banks(struct caninos_pinctrl *pctl)
 {
 	struct caninos_gpio_chip *bank;
@@ -500,12 +491,19 @@ static int caninos_gpiolib_register_banks(struct caninos_pinctrl *pctl)
 		
 		gpio_chip = &bank->gpio_chip;
 		
-		memcpy(&bank->irq_chip, &caninos_gpio_irq_chip, sizeof(caninos_gpio_irq_chip));
+		bank->irq_chip.irq_ack = caninos_gpio_irq_ack;
+		bank->irq_chip.irq_ack = caninos_gpio_irq_ack;
+		bank->irq_chip.irq_enable = caninos_gpio_irq_enable;
+		bank->irq_chip.irq_disable = caninos_gpio_irq_disable;
+		bank->irq_chip.irq_set_type = caninos_gpio_irq_set_type;
+		bank->irq_chip.irq_mask = caninos_gpio_irq_mask;
+		bank->irq_chip.irq_unmask = caninos_gpio_irq_unmask;
 
 		if ((ret = devm_gpiochip_add_data(dev, &bank->gpio_chip, bank)) < 0) {
 			dev_err(dev, "could not add gpio bank %s\n", bank->label);
 			return ret;
 		}
+		
 		ret = gpiochip_irqchip_add(gpio_chip, &bank->irq_chip, 0, 
 								handle_level_irq, IRQ_TYPE_NONE); 
 								//check other types that don't use the ack before the interrupt
