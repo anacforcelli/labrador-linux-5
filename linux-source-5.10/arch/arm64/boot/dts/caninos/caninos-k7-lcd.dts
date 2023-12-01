@@ -79,17 +79,19 @@
 			debug = <0>;
 		};
 
+		/*
 		rpidisplay_ts: rpi-display-ts@1 {
 			compatible = "ti,ads7846";
 			reg = <1>;
 
 			spi-max-frequency = <1000000>;
-			interrupts = <25 2>; /* high-to-low edge triggered */
+			interrupts = <25 2>;   // high-to-low edge triggered
 			interrupt-parent = <&gpioc>;
 			pendown-gpio = <&gpioc 5 GPIO_ACTIVE_HIGH>;
 			ti,x-plate-ohms = /bits/ 16 <60>;
 			ti,pressure-max = /bits/ 16 <255>;
-		};
+		}; 
+		*/
 	};
 };
 

@@ -1,0 +1,82 @@
+/// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+
+/dts-v1/;
+#include "caninos-k5.dtsi"
+
+/ {
+	chosen {
+		stdout-path = "serial3:115200n8";
+	};
+
+	soc {
+		leds {
+			compatible = "gpio-leds";
+			
+			led@1 {
+				label = "led1";
+				gpios = <&gpiob 12 GPIO_ACTIVE_HIGH>;
+				linux,default-trigger = "default-on";
+				default-state = "ON";
+			};
+			
+			led@2 {
+				label = "led2";
+				gpios = <&gpiob 31 GPIO_ACTIVE_HIGH>;
+				linux,default-trigger = "heartbeat";
+				default-state = "ON";
+			};
+		};
+	};
+
+	spi0: spi-gpio {
+		compatible = "spi-gpio";
+		miso-gpios = <&gpiod 25 GPIO_ACTIVE_HIGH>;
+		mosi-gpios = <&gpiod 24 GPIO_ACTIVE_HIGH>;
+		sck-gpios  = <&gpioc 22 GPIO_ACTIVE_HIGH>;
+		cs-gpios   = <&gpioc 23 GPIO_ACTIVE_LOW>, <&gpiob 19 GPIO_ACTIVE_LOW>;
+		cs-num = <2>;
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		max-speed = <1000000>;
+
+
+		rpidisplay: rpi-display@0{
+			compatible = "ilitek,ili9341";
+			reg = <0>;
+
+			spi-max-frequency = <1000000>;
+			rotate = <270>;
+			bgr;
+			fps = <30>;
+			buswidth = <8>;
+			reset-gpios = <&gpioa 25 GPIO_ACTIVE_HIGH>;
+			dc-gpios = <&gpioc 6 GPIO_ACTIVE_HIGH>;
+			led-gpios = <&gpiob 8 GPIO_ACTIVE_LOW>;
+			debug = <0>;
+		};
+
+		rpidisplay_ts: rpi-display-ts@1 {
+			compatible = "ti,ads7846";
+			reg = <1>;
+
+			spi-max-frequency = <1000000>;
+			interrupts = <25 2>; /* high-to-low edge triggered */
+			interrupt-parent = <&gpioc>;
+			pendown-gpio = <&gpioc 5 GPIO_ACTIVE_HIGH>;
+			ti,x-plate-ohms = /bits/ 16 <60>;
+			ti,pressure-max = /bits/ 16 <255>;
+		};
+	};
+};
+
+&mmc1 {
+	enable-gpios = <&gpiob 30 GPIO_ACTIVE_HIGH>, 
+					<&gpioc 3 GPIO_ACTIVE_HIGH>;
+};
+
+&emac {
+	phy-power-gpio = <&gpiob 11 GPIO_ACTIVE_HIGH>;
+	phy-reset-gpio = <&gpiod 31 GPIO_ACTIVE_HIGH>;
+};

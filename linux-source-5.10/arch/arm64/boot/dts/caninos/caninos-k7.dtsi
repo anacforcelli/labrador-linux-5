@@ -204,6 +204,7 @@
 				#gpio-cells = <2>;
 				interrupt-controller;
 				#interrupt-cells = <2>;
+				interrupts = <GIC_SPI 36 IRQ_TYPE_LEVEL_HIGH>;
 			};
 			gpiob: bank@1 {
 				gpio-label = "GPIOB";
@@ -213,6 +214,7 @@
 				#gpio-cells = <2>;
 				interrupt-controller;
 				#interrupt-cells = <2>;
+				interrupts = <GIC_SPI 37 IRQ_TYPE_LEVEL_HIGH>;
 			};
 			gpioc: bank@2 {
 				gpio-label = "GPIOC";
@@ -222,6 +224,7 @@
 				#gpio-cells = <2>;
 				interrupt-controller;
 				#interrupt-cells = <2>;
+				interrupts = <GIC_SPI 38 IRQ_TYPE_LEVEL_HIGH>;
 			};
 			gpiod: bank@3 {
 				gpio-label = "GPIOD";
@@ -231,6 +234,7 @@
 				#gpio-cells = <2>;
 				interrupt-controller;
 				#interrupt-cells = <2>;
+				interrupts = <GIC_SPI 39 IRQ_TYPE_LEVEL_HIGH>;
 			};
 			gpioe: bank@4 {
 				gpio-label = "GPIOE";
@@ -240,6 +244,7 @@
 				#gpio-cells = <2>;
 				interrupt-controller;
 				#interrupt-cells = <2>;
+				interrupts = <GIC_SPI 40 IRQ_TYPE_LEVEL_HIGH>;
 			};
 			i2c2_state_gpio: i2c2_gpio {
 				function = "i2c2";
