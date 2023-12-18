@@ -92,7 +92,7 @@ caninos_gpio_direction_output(struct gpio_chip *chip, unsigned off, int val)
 		return 0;
 	}
 	
-	raw_spin_lock_irqsave(&bank->lock, flags);
+	spin_lock_irqsave(&bank->pinctrl->lock, flags);
 	
 	*(bank->outen) |= BIT(off);
 	*(bank->inen) &= ~BIT(off);
@@ -104,7 +104,7 @@ caninos_gpio_direction_output(struct gpio_chip *chip, unsigned off, int val)
 		*(bank->dat) &= ~BIT(off);
 	}
 	
-	raw_spin_unlock_irqrestore(&bank->lock, flags);
+	spin_unlock_irqrestore(&bank->pinctrl->lock, flags);
 	return 0;
 }
 
@@ -118,9 +118,9 @@ static int caninos_gpio_get_direction(struct gpio_chip *chip, unsigned off)
 		return GPIO_LINE_DIRECTION_IN;
 	}
 	
-	raw_spin_lock_irqsave(&bank->lock, flags);
+	spin_lock_irqsave(&bank->pinctrl->lock, flags);
 	val = *(bank->inen) & BIT(off);
-	raw_spin_unlock_irqrestore(&bank->lock, flags);
+	spin_unlock_irqrestore(&bank->pinctrl->lock, flags);
 	
 	return val ? GPIO_LINE_DIRECTION_IN : GPIO_LINE_DIRECTION_OUT;
 }
@@ -135,9 +135,9 @@ static int caninos_gpio_get(struct gpio_chip *chip, unsigned off)
 		return 0;
 	}
 	
-	raw_spin_lock_irqsave(&bank->lock, flags);
+	spin_lock_irqsave(&bank->pinctrl->lock, flags);
 	val = *(bank->dat) & BIT(off);
-	raw_spin_unlock_irqrestore(&bank->lock, flags);
+	spin_unlock_irqrestore(&bank->pinctrl->lock, flags);
 	return val;
 }
 
@@ -150,7 +150,7 @@ static void caninos_gpio_set(struct gpio_chip *chip, unsigned off, int val)
 		return;
 	}
 	
-	raw_spin_lock_irqsave(&bank->lock, flags);
+	spin_lock_irqsave(&bank->pinctrl->lock, flags);
 	
 	if (val) {
 		*(bank->dat) |= BIT(off);
@@ -159,7 +159,7 @@ static void caninos_gpio_set(struct gpio_chip *chip, unsigned off, int val)
 		*(bank->dat) &= ~BIT(off);
 	}
 	
-	raw_spin_unlock_irqrestore(&bank->lock, flags);
+	spin_unlock_irqrestore(&bank->pinctrl->lock, flags);
 }
 
 static int caninos_gpio_direction_input(struct gpio_chip *chip, unsigned off)
@@ -171,12 +171,12 @@ static int caninos_gpio_direction_input(struct gpio_chip *chip, unsigned off)
 		return 0;
 	}
 	
-	raw_spin_lock_irqsave(&bank->lock, flags);
+	spin_lock_irqsave(&bank->pinctrl->lock, flags);
 	
 	*(bank->outen) &= ~BIT(off);
 	*(bank->inen) |= BIT(off);
 	
-	raw_spin_unlock_irqrestore(&bank->lock, flags);
+	spin_unlock_irqrestore(&bank->pinctrl->lock, flags);
 	return 0;
 }
 
@@ -234,12 +234,12 @@ caninos_pmx_set_mux(struct pinctrl_dev *pctldev, unsigned fsel, unsigned gsel)
 			continue;
 		}
 		
-		raw_spin_lock_irqsave(&bank->lock, flags);
+		spin_lock_irqsave(&bank->pinctrl->lock, flags);
 		
 		*(bank->outen) &= ~BIT(off);
 		*(bank->inen) &= ~BIT(off);
 		
-		raw_spin_unlock_irqrestore(&bank->lock, flags);
+		spin_unlock_irqrestore(&bank->pinctrl->lock, flags);
 	}
 	return 0;
 }
@@ -266,10 +266,10 @@ static void caninos_gpio_free(struct gpio_chip *chip, unsigned int off)
 	struct caninos_gpio_chip *bank = to_caninos_gpio_chip(chip);
 	unsigned long flags;
 	
-	raw_spin_lock_irqsave(&bank->lock, flags);
+	spin_lock_irqsave(&bank->pinctrl->lock, flags);
 	*(bank->outen) &= ~BIT(off);
 	*(bank->inen) &= ~BIT(off);
-	raw_spin_unlock_irqrestore(&bank->lock, flags);
+	spin_unlock_irqrestore(&bank->pinctrl->lock, flags);
 	
 	gpiochip_generic_free(chip, off);
 }
@@ -280,7 +280,7 @@ static void caninos_gpio_irq_ack(struct irq_data *data)
 	unsigned long type, flags;
 	int line, hwirq;
 
-	raw_spin_lock_irqsave(&bank->lock, flags);
+	spin_lock_irqsave(&bank->pinctrl->lock, flags);
 
 	pr_err("irq: %d", data->irq);
 	//val = readl(bank->pinctrl->base + INTC_GPIOCTL);
@@ -306,7 +306,7 @@ static void caninos_gpio_irq_ack(struct irq_data *data)
 		// add reserved values?
 		writel(val, bank->pinctrl->base + INTC_GPIOCTL);
 	}
-	raw_spin_unlock_irqrestore(&bank->lock, flags);
+	spin_unlock_irqrestore(&bank->pinctrl->lock, flags);
 }
 
 static void caninos_gpio_irq_enable(struct irq_data *data) 
@@ -315,12 +315,12 @@ static void caninos_gpio_irq_enable(struct irq_data *data)
 	u32 val;
 	unsigned long flags;
 
-	raw_spin_lock_irqsave(&bank->lock, flags);
+	spin_lock_irqsave(&bank->pinctrl->lock, flags);
 	val = readl(bank->pinctrl->base + INTC_GPIOCTL);
 	val |= INTC_GPIOCTL_GPIOX_EN(bank->addr);
 
 	writel(val, bank->pinctrl->base + INTC_GPIOCTL);
-	raw_spin_unlock_irqrestore(&bank->lock, flags);
+	spin_unlock_irqrestore(&bank->pinctrl->lock, flags);
 }
 
 static void caninos_gpio_irq_disable(struct irq_data *data) 
@@ -329,12 +329,12 @@ static void caninos_gpio_irq_disable(struct irq_data *data)
 	u32 val;
 	unsigned long flags;
 
-	raw_spin_lock_irqsave(&bank->lock, flags);
+	spin_lock_irqsave(&bank->pinctrl->lock, flags);
 	val = readl(bank->pinctrl->base + INTC_GPIOCTL);
 	val &= ~INTC_GPIOCTL_GPIOX_EN(bank->addr);
 
 	writel(val, bank->pinctrl->base + INTC_GPIOCTL);
-	raw_spin_unlock_irqrestore(&bank->lock, flags);
+	spin_unlock_irqrestore(&bank->pinctrl->lock, flags);
 }
 
 static int caninos_gpio_irq_set_type(struct irq_data *data, unsigned int flow_type) 
@@ -344,7 +344,7 @@ static int caninos_gpio_irq_set_type(struct irq_data *data, unsigned int flow_ty
 	unsigned long flags, type;
 	int line, hwirq;
 
-	raw_spin_lock_irqsave(&bank->lock, flags);	
+	spin_lock_irqsave(&bank->pinctrl->lock, flags);	
 	val0 = readl(bank->pinctrl->base + INTC_GPIOX_TYPE0(bank->addr));
 	val1 = readl(bank->pinctrl->base + INTC_GPIOX_TYPE1(bank->addr));
 
@@ -387,7 +387,7 @@ static int caninos_gpio_irq_set_type(struct irq_data *data, unsigned int flow_ty
 
 	writel(val0, bank->pinctrl->base + INTC_GPIOX_TYPE0(bank->addr));
 	writel(val1, bank->pinctrl->base + INTC_GPIOX_TYPE1(bank->addr));
-	raw_spin_unlock_irqrestore(&bank->lock, flags);
+	spin_unlock_irqrestore(&bank->pinctrl->lock, flags);
 
 	return 0;
 }
@@ -399,7 +399,7 @@ static void caninos_gpio_irq_mask(struct irq_data *data)
 	unsigned long flags;
 	int line, hwirq;
 
-	raw_spin_lock_irqsave(&bank->lock, flags);
+	spin_lock_irqsave(&bank->pinctrl->lock, flags);
 	val = readl(bank->pinctrl->base + INTC_GPIOX_MSK(bank->addr));
 
 	hwirq = irq_linear_revmap(data->domain, data->irq);
@@ -411,7 +411,7 @@ static void caninos_gpio_irq_mask(struct irq_data *data)
 
 	// mask reserved values?
 	writel(val, bank->pinctrl->base + INTC_GPIOX_MSK(bank->addr));
-	raw_spin_unlock_irqrestore(&bank->lock, flags);
+	spin_unlock_irqrestore(&bank->pinctrl->lock, flags);
 }
 
 static void caninos_gpio_irq_unmask(struct irq_data *data) 
@@ -421,7 +421,7 @@ static void caninos_gpio_irq_unmask(struct irq_data *data)
 	unsigned long flags;
 	int line, hwirq;
 
-	raw_spin_lock_irqsave(&bank->lock, flags);
+	spin_lock_irqsave(&bank->pinctrl->lock, flags);
 	val = readl(bank->pinctrl->base + INTC_GPIOX_MSK(bank->addr));
 
 	hwirq = irq_linear_revmap(data->domain, data->irq);
@@ -434,25 +434,29 @@ static void caninos_gpio_irq_unmask(struct irq_data *data)
 
 	// mask reserved values?
 	writel(val, bank->pinctrl->base + INTC_GPIOX_MSK(bank->addr));
-	raw_spin_unlock_irqrestore(&bank->lock, flags);
+	spin_unlock_irqrestore(&bank->pinctrl->lock, flags);
 }
 
 //https://elixir.bootlin.com/linux/v4.20.17/source/drivers/gpio/gpio-rcar.c#L501
 static irqreturn_t caninos_handle_irq(int irq, void *data)
 {
 	struct caninos_gpio_chip *bank = data;
-	unsigned long val;
+	unsigned long val, msk, setbits;
 	int gpio;
 	
 	// check if the ack interferes with this reading
 	val = readl(bank->pinctrl->base + INTC_GPIOX_PD(bank->addr));
-	val &= readl(bank->pinctrl->base + INTC_GPIOX_MSK(bank->addr));
+	msk = readl(bank->pinctrl->base + INTC_GPIOX_MSK(bank->addr));
 
+	setbits = val & msk;
 	// check parsing direction
-	for_each_set_bit(gpio, &val, bank->gpio_chip.ngpio) {
+	for_each_set_bit(gpio, &setbits, bank->gpio_chip.ngpio) {
 		generic_handle_irq(irq_find_mapping(bank->gpio_chip.irq.domain, gpio));
 	}
 	
+	//write 1 to clear each pending bit
+	writel(val, bank->pinctrl->base + INTC_GPIOX_PD(bank->addr));
+
 	return IRQ_HANDLED;
 }
 
@@ -587,8 +591,6 @@ static int caninos_gpiolib_parse_bank(struct caninos_pinctrl *pctl,
 	bank->irq = irq;
 	
 	memset(&bank->gpio_chip, 0, sizeof(bank->gpio_chip));
-	
-	raw_spin_lock_init(&bank->lock);
 	
 	bank->inen  = (volatile u32*)(pctl->base + GPIO_INEN(bank_nr));
 	bank->outen = (volatile u32*)(pctl->base + GPIO_OUTEN(bank_nr));

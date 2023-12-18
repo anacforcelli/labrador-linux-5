@@ -112,7 +112,6 @@ struct caninos_gpio_chip
 	volatile u32 *inen;
 	volatile u32 *outen;
 	volatile u32 *dat;
-	raw_spinlock_t lock;
 	int addr, npins;
 	unsigned int irq;
 	u32 mask;
