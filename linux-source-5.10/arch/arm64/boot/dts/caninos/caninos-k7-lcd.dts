@@ -52,46 +52,55 @@
 
 	spi0: spi-gpio {
 		compatible = "spi-gpio";
-		miso-gpios = <&gpiod 25 GPIO_ACTIVE_HIGH>;
-		mosi-gpios = <&gpiod 24 GPIO_ACTIVE_HIGH>;
-		sck-gpios  = <&gpioc 22 GPIO_ACTIVE_HIGH>;
-		cs-gpios   = <&gpioc 23 GPIO_ACTIVE_LOW>, <&gpiob 19 GPIO_ACTIVE_LOW>;
-		cs-num = <2>;
-
 		#address-cells = <1>;
 		#size-cells = <0>;
-
-		max-speed = <1000000>;
-
-
-		rpidisplay: rpi-display@0{
-			compatible = "ilitek,ili9341";
+		
+		gpio-mosi = <&gpioc 25 GPIO_ACTIVE_HIGH>;
+		gpio-sck = <&gpioc 22 GPIO_ACTIVE_HIGH>;
+		gpio-miso = <&gpioc 24 GPIO_ACTIVE_HIGH>;
+		cs-gpios = <&gpiob 19 GPIO_ACTIVE_LOW>, <&gpioc 23 GPIO_ACTIVE_LOW>;
+		num-chipselects = <2>;
+		status = "okay";
+		
+		tft35a@0 {
+			compatible = "ilitek,ili9486";
 			reg = <0>;
-
 			spi-max-frequency = <1000000>;
-			rotate = <270>;
-			bgr;
-			fps = <30>;
-			buswidth = <8>;
+			txbuflen = <0x8000>;
+			rotate = <0x5a>;
+			bgr = <0x00>;
+			fps = <0x1e>;
+			buswidth = <0x08>;
+			regwidth = <0x10>;
 			reset-gpios = <&gpiod 30 GPIO_ACTIVE_HIGH>;
-			dc-gpios = <&gpioc 6 GPIO_ACTIVE_HIGH>;
-			led-gpios = <&gpiob 8 GPIO_ACTIVE_LOW>;
+			dc-gpios = <&gpioc 6 GPIO_ACTIVE_HIGH>; 
 			debug = <0>;
-		};
+			init = <0x10000b0 0x00 0x1000011 0x20000ff 0x100003a
+				0x55 0x1000036 0x28 0x10000c2 0x44
+				0x10000c5 0x00 0x00 0x00 0x00
+				0x10000e0 0x0f 0x1f 0x1c 0x0c
+				0x0f 0x08 0x48 0x98 0x37 
+				0x0a 0x13 0x04 0x11 0x0d
+				0x00 0x10000e1 0x0f 0x32 0x2e 
+				0x0b 0x0d 0x05 0x47 0x75 
+				0x37 0x06 0x10 0x03 0x24 
+				0x20 0x00 0x10000e2 0x0f 0x32 
+				0x2e 0x0b 0x0d 0x05 0x47
+				0x75 0x37 0x06 0x10 0x03 
+				0x24 0x20 0x00 0x1000036 
+				0x28 0x1000011 0x1000029>;
+			};
 
-		/*
-		rpidisplay_ts: rpi-display-ts@1 {
+		tft35a-ts@1 {
 			compatible = "ti,ads7846";
 			reg = <1>;
-
-			spi-max-frequency = <1000000>;
-			interrupts = <25 2>;   // high-to-low edge triggered
+			spi-max-frequency = <100000>;
 			interrupt-parent = <&gpioc>;
+			interrupts = <5 IRQ_TYPE_EDGE_FALLING>;
 			pendown-gpio = <&gpioc 5 GPIO_ACTIVE_HIGH>;
-			ti,x-plate-ohms = /bits/ 16 <60>;
-			ti,pressure-max = /bits/ 16 <255>;
-		}; 
-		*/
+			ti,x-plate-ohms = [00 3c];
+			ti,pressure-max = [00 ff];
+		};
 	};
 };
 
