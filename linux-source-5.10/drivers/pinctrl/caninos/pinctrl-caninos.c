@@ -460,6 +460,10 @@ static irqreturn_t caninos_handle_irq(int irq, void *data)
 	return IRQ_HANDLED;
 }
 
+static int caninos_gpio_to_irq(struct gpio_chip *gpio_chip, unsigned offset)
+{
+	return irq_find_mapping(gpio_chip->irq.domain, offset);
+}
 
 static struct pinctrl_ops caninos_pctrl_ops = {
 	.get_groups_count = caninos_get_groups_count,
@@ -486,44 +490,20 @@ static int caninos_gpiolib_register_banks(struct caninos_pinctrl *pctl)
 {
 	struct caninos_gpio_chip *bank;
 	struct device *dev = pctl->dev;
-	struct gpio_chip *gpio_chip;
+	
 	int i, ret;
 	
 	for (i = 0; i < pctl->nbanks; i++)
 	{
 		bank = &pctl->banks[i];
 		
-		gpio_chip = &bank->gpio_chip;
-		
-		bank->irq_chip.irq_ack = caninos_gpio_irq_ack;
-		bank->irq_chip.irq_ack = caninos_gpio_irq_ack;
-		bank->irq_chip.irq_enable = caninos_gpio_irq_enable;
-		bank->irq_chip.irq_disable = caninos_gpio_irq_disable;
-		bank->irq_chip.irq_set_type = caninos_gpio_irq_set_type;
-		bank->irq_chip.irq_mask = caninos_gpio_irq_mask;
-		bank->irq_chip.irq_unmask = caninos_gpio_irq_unmask;
 
 		if ((ret = devm_gpiochip_add_data(dev, &bank->gpio_chip, bank)) < 0) {
 			dev_err(dev, "could not add gpio bank %s\n", bank->label);
 			return ret;
 		}
 		
-		ret = gpiochip_irqchip_add(gpio_chip, &bank->irq_chip, 0, 
-								handle_level_irq, IRQ_TYPE_NONE); 
-								//check other types that don't use the ack before the interrupt
 		
-		if (ret < 0) {
-			dev_err(dev, "failed to add irq chip for bank %s\n", bank->label);
-			return ret;
-		}
-		
-		ret = request_irq(bank->irq, caninos_handle_irq, IRQF_SHARED,
-		                  bank->label, bank);
-		
-		if (ret < 0) {
-			dev_err(dev, "failed to add irq and handler for bank %s\n", bank->label);
-			return ret;
-		}
 
 		dev_info(dev, "gpio bank %s added\n", bank->label);
 	}
@@ -540,6 +520,11 @@ static int caninos_gpiolib_parse_bank(struct caninos_pinctrl *pctl,
 	struct of_phandle_args args;
 	const char *label;
 	u32 mask;
+
+	memset(bank, 0, sizeof(*bank));
+
+
+
 	
 	if (!of_parse_phandle_with_fixed_args(np, "gpio-ranges", 3, i, &args))
 	{
@@ -590,18 +575,14 @@ static int caninos_gpiolib_parse_bank(struct caninos_pinctrl *pctl,
 	bank->mask = mask;
 	bank->irq = irq;
 	
-	memset(&bank->gpio_chip, 0, sizeof(bank->gpio_chip));
 	
 	bank->inen  = (volatile u32*)(pctl->base + GPIO_INEN(bank_nr));
 	bank->outen = (volatile u32*)(pctl->base + GPIO_OUTEN(bank_nr));
 	bank->dat   = (volatile u32*)(pctl->base + GPIO_DAT(bank_nr));
-	
-	memset(&bank->gpio_chip, 0, sizeof(bank->gpio_chip));
-	
+
 	bank->gpio_chip.label = bank->label;
 	bank->gpio_chip.parent = dev;
 	bank->gpio_chip.of_node = np;
-	
 	bank->gpio_chip.request = caninos_gpio_request;
 	bank->gpio_chip.free = caninos_gpio_free;
 	bank->gpio_chip.get_direction = caninos_gpio_get_direction;
@@ -609,12 +590,34 @@ static int caninos_gpiolib_parse_bank(struct caninos_pinctrl *pctl,
 	bank->gpio_chip.direction_output = caninos_gpio_direction_output;
 	bank->gpio_chip.get = caninos_gpio_get;
 	bank->gpio_chip.set = caninos_gpio_set;
-	
 	bank->gpio_chip.ngpio = npins;
 	bank->gpio_chip.base = bank_nr * GPIO_PER_BANK;
 	bank->gpio_chip.owner = THIS_MODULE;
 	bank->gpio_chip.can_sleep = false;
-	
+	bank->gpio_chip.to_irq = caninos_gpio_to_irq;
+
+	bank->girq.chip = &bank->irq_chip;
+	bank->girq.parent_handler = NULL;
+	bank->girq.num_parents = 0;
+	bank->girq.parents = NULL;
+	bank->girq.default_type = IRQ_TYPE_NONE;
+	bank->girq.handler = handle_level_irq;
+
+	bank->irq_chip.name = bank->label;
+	bank->irq_chip.irq_ack = caninos_gpio_irq_ack;
+	bank->irq_chip.irq_enable = caninos_gpio_irq_enable;
+	bank->irq_chip.irq_disable = caninos_gpio_irq_disable;
+	bank->irq_chip.irq_set_type = caninos_gpio_irq_set_type;
+	bank->irq_chip.irq_mask = caninos_gpio_irq_mask;
+	bank->irq_chip.irq_unmask = caninos_gpio_irq_unmask;
+
+	ret = request_irq(bank->irq, caninos_handle_irq, IRQF_SHARED, bank->label, bank);
+		
+	if (ret < 0) {
+		dev_err(dev, "failed to add irq and handler for bank %s\n", bank->label);
+		return ret;
+	}
+
 	return 0;
 }
 

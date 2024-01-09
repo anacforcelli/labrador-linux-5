@@ -107,6 +107,7 @@ struct caninos_gpio_chip
 {
 	struct caninos_pinctrl *pinctrl;
 	struct gpio_chip gpio_chip;
+	struct gpio_irq_chip girq;
 	struct irq_chip irq_chip;
 	char label[BANK_LABEL_LEN];
 	volatile u32 *inen;
