@@ -366,6 +366,7 @@ alias i2c:ds1682 ds1682
 alias of:N*T*Cdallas,ds1682C* ds1682
 alias of:N*T*Cdallas,ds1682 ds1682
 alias i2c:hmc6352 hmc6352
+alias spi:caninos,sx1272 sx1272
 alias platform:sm501 sm501
 alias of:N*T*Csmi,sm501C* sm501
 alias of:N*T*Csmi,sm501 sm501

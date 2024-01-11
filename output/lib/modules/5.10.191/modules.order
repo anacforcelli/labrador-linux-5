@@ -105,6 +105,7 @@ kernel/drivers/misc/ds1682.ko
 kernel/drivers/misc/hmc6352.ko
 kernel/drivers/misc/altera-stapl/altera-stapl.ko
 kernel/drivers/misc/echo/echo.ko
+kernel/drivers/misc/sx1272.ko
 kernel/drivers/mfd/sm501.ko
 kernel/drivers/mfd/wl1273-core.ko
 kernel/drivers/mfd/si476x-core.ko
