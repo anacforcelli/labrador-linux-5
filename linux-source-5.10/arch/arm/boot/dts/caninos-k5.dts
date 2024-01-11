@@ -70,6 +70,29 @@
 				// txrx = NC @ base2.1; pmic sgpio4 @ base 3.1
 			};
 		};
+
+		spi0: spi-gpio {
+			compatible = "spi-gpio";
+			#address-cells = <0x1>;
+			ranges;
+
+			mosi-gpios = <&gpiod 24 GPIO_ACTIVE_HIGH>;
+			miso-gpios = <&gpiod 25 GPIO_ACTIVE_HIGH>;
+			sck-gpios  = <&gpioc 22 GPIO_ACTIVE_HIGH>;
+			cs-gpios   = <&gpioc 2  GPIO_ACTIVE_LOW >;
+			
+    		num-chipselects = <1>;
+			status = "okay";
+
+			lora@0 {
+				compatible = "spidev";
+    			spi-max-frequency = <80000000>;
+				reg = <0>;
+				// reset = pmic sgpio 4 @ base 2.1, gpio expander p0 @ base 3.1
+				// dio0 = gpiob 11
+				// txrx = NC @ base2.1; pmic sgpio4 @ base 3.1
+			};
+		};
 	};
 };
 
