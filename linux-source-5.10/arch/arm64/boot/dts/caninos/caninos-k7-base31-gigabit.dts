@@ -71,7 +71,7 @@
 		};
 
 		sx1272: spi@1 {
-			compatible = "semtech,sx1272";
+			compatible = "caninos,sx1272";
 			reg = <1>;
 			radio-frequency = <915000000>;
 			clock-frequency = <32000000>;
