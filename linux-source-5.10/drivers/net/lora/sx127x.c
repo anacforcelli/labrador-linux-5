@@ -613,14 +613,20 @@ static int sx127x_set_freq(struct sx127x_priv *priv, u32 freq)
 	unsigned int val;
 	int ret;
 
+<<<<<<< HEAD
 	dev_info(&spi->dev, "setting frequency at %d", freq);
 
+=======
+>>>>>>> af6af547d (:construction: Start of LoRa driver port)
 	ret = sx127x_get_xosc_freq(priv, &freq_xosc);
 	if (ret)
 		return ret;
 
+<<<<<<< HEAD
 	dev_info(&spi->dev, "freq_xosc: %d", freq_xosc);
 
+=======
+>>>>>>> af6af547d (:construction: Start of LoRa driver port)
 	mutex_lock(&priv->spi_lock);
 
 	ret = regmap_read(priv->regmap, REG_OPMODE, &val);
@@ -648,6 +654,7 @@ static int sx127x_set_freq(struct sx127x_priv *priv, u32 freq)
 	freq_rf = freq;
 	freq_rf *= (1 << 19);
 	do_div(freq_rf, freq_xosc);
+	
 	dev_info(&spi->dev, "Frf = %llu", freq_rf);
 
 	ret = regmap_write(priv->regmap, REG_FRF_MSB, freq_rf >> 16);
@@ -659,7 +666,6 @@ static int sx127x_set_freq(struct sx127x_priv *priv, u32 freq)
 	mutex_unlock(&priv->spi_lock);
 
 	dev_info(&spi->dev, "wrote RF registers");
-
 	return ret;
 }
 

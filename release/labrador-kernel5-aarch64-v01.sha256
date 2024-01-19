@@ -5,6 +5,7 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 9e7ab0bc3803af0eec0a9cba49bb6b5259d2e5e8cfab2e429a38e4971acea2a1  labrador-kernel5-aarch64-v01.tar.gz
 =======
 5d8354dad5d274304c6dd311f6ebe426dd47a9715d284067f9b938f7ded12c90  labrador-kernel5-aarch64-v01.tar.gz
@@ -21,6 +22,8 @@ f871633968a814e3cc5ebfbdaec1178610e12df70be8c10b07ac6f682ee0717c  labrador-kerne
 >>>>>>> e6a47fcc1 (Added vsync support to caninos-drm.)
 =======
 >>>>>>> 00cb173a4 (fixed sx1272 driver skeleton, now the version is read on base 3.1)
+=======
+>>>>>>> af6af547d (:construction: Start of LoRa driver port)
 f871633968a814e3cc5ebfbdaec1178610e12df70be8c10b07ac6f682ee0717c  labrador-kernel5-aarch64-v01.tar.gz
 =======
 fa7e1f5f8618fae1d4836d0450664f8adcd8946798eb5999f6d72a2b3161c70f  labrador-kernel5-aarch64-v01.tar.gz
@@ -49,4 +52,10 @@ c470747c90e9b58c2017b12e445a6b0626268ca3adbac32b841b3b00c2de9ff6  labrador-kerne
 =======
 74cc29493e5456780afd432f46152e14b15c4174a715ebb2f0dab60691118636  labrador-kernel5-aarch64-v01.tar.gz
 >>>>>>> ac867b21d (fixed sx1272 driver skeleton, now the version is read on base 3.1)
+<<<<<<< HEAD
 >>>>>>> 00cb173a4 (fixed sx1272 driver skeleton, now the version is read on base 3.1)
+=======
+=======
+9c803e2d4016bc54beeba9feab5d1f3e92e9e50a7b0ab59b2a8e3ea4a21104ad  labrador-kernel5-aarch64-v01.tar.gz
+>>>>>>> 8890f2090 (:construction: Start of LoRa driver port)
+>>>>>>> af6af547d (:construction: Start of LoRa driver port)
