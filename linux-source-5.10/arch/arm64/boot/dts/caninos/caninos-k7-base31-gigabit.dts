@@ -71,9 +71,9 @@
 		};
 
 		sx1272: spi@1 {
-			compatible = "caninos,sx1272";
+			compatible = "semtech,sx1272";
 			reg = <1>;
-			// reset = <&exgpio 0 GPIO_ACTIVE_LOW>;
+			reset-gpio = <&exgpio 0 GPIO_ACTIVE_LOW>;
 			// dio0 = <&gpiob 11 GPIO_ACTIVE_HIGH>;
 		};
 	};
