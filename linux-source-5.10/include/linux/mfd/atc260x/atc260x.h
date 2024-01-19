@@ -40,6 +40,7 @@ enum {
 	ATC260X_ICVER_G,
 	ATC260X_ICVER_H,
 };
+
 struct atc260x_dev
 {
 	struct device *dev;
