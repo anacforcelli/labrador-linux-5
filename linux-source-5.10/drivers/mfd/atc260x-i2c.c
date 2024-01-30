@@ -217,17 +217,6 @@ static int atc260x_i2c_probe(struct i2c_client *i2c,
 	default:
 		break;
 	}
-
-	ret = devm_mfd_add_devices(&i2c->dev, 0, sc_atc2603c_cells,
-	                           ARRAY_SIZE(sc_atc2603c_cells),
-	                           NULL, 0, NULL);
-	
-	if (ret) {
-		dev_err(&i2c->dev, "failed to add children devices: %d\n", ret);
-		i2c_set_clientdata(i2c, NULL);
-		pmic.dev = NULL;
-		return ret;
-	}
 	
 	pm_power_off = atc260x_poweroff;
 	arm_pm_restart = atc260x_restart;
