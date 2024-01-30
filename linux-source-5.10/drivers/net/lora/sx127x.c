@@ -613,9 +613,13 @@ static int sx127x_set_freq(struct sx127x_priv *priv, u32 freq)
 	unsigned int val;
 	int ret;
 
+	dev_info(&spi->dev, "setting frequency at %d", freq);
+
 	ret = sx127x_get_xosc_freq(priv, &freq_xosc);
 	if (ret)
 		return ret;
+
+	dev_info(&spi->dev, "freq_xosc: %d", freq_xosc);
 
 	mutex_lock(&priv->spi_lock);
 
@@ -644,7 +648,7 @@ static int sx127x_set_freq(struct sx127x_priv *priv, u32 freq)
 	freq_rf = freq;
 	freq_rf *= (1 << 19);
 	do_div(freq_rf, freq_xosc);
-	dev_dbg(&spi->dev, "Frf = %llu", freq_rf);
+	dev_info(&spi->dev, "Frf = %llu", freq_rf);
 
 	ret = regmap_write(priv->regmap, REG_FRF_MSB, freq_rf >> 16);
 	if (!ret)
@@ -653,6 +657,8 @@ static int sx127x_set_freq(struct sx127x_priv *priv, u32 freq)
 		ret = regmap_write(priv->regmap, REG_FRF_LSB, freq_rf);
 
 	mutex_unlock(&priv->spi_lock);
+
+	dev_info(&spi->dev, "wrote RF registers");
 
 	return ret;
 }
@@ -1084,6 +1090,8 @@ static int sx127x_lora_init(struct lora_phy *phy)
 		dev_err(&spi->dev, "failed reading radio-frequency");
 		return ret;
 	}
+
+	dev_info(&spi->dev, "frequency is %d", freq_band);
 
 	val = REG_OPMODE_LONG_RANGE_MODE | REG_OPMODE_MODE_SLEEP;
 	if (freq_band < 525000000)

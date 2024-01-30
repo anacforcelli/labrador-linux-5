@@ -191,21 +191,6 @@ static int atc260x_i2c_probe(struct i2c_client *i2c,
 		return ret;
 	}
 	
-	switch (atc260x->ic_type)
-	{
-	case ATC260X_ICTYPE_2603C:
-		/* TEMPORARY FIX FOR LORA */
-		atc260x_reg_write(atc260x, ATC2603C_MFP_CTL, BIT(8) & ~BIT(7));
-		atc260x_reg_write(atc260x, ATC2603C_GPIO_OUTEN, BIT(4));
-		atc260x_reg_write(atc260x, ATC2603C_GPIO_DAT, BIT(4));
-		mdelay(1);
-		atc260x_reg_write(atc260x, ATC2603C_GPIO_OUTEN, 0);
-		atc260x_reg_write(atc260x, ATC2603C_GPIO_INEN, BIT(4)); // sgpio4 as input -> high-z
-		break;
-	default:
-		break;
-	}
-
 	ret = devm_mfd_add_devices(&i2c->dev, 0, sc_atc2603c_cells,
 	                           ARRAY_SIZE(sc_atc2603c_cells),
 	                           NULL, 0, NULL);
