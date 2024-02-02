@@ -466,7 +466,7 @@ config HISI_HIKEY_USB
 	  switching between the dual-role USB-C port and the USB-A host ports
 	  using only one USB controller.
 
-config SX1272
+config SX127X
 	tristate "Lora sx1272 driver for Labrador board"
 	help
 	  This driver provides support for sx1272 lora chip on Labrador board.

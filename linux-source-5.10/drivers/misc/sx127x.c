@@ -8,7 +8,7 @@
 #include <linux/kfifo.h>
 #include <linux/wait.h>
 #include <linux/uaccess.h>
-
+#include <linux/timer.h>
 
 #include "sx127x.h"
 
@@ -201,8 +201,8 @@ struct sx127x {
 	struct device *chardevice;
 	struct work_struct irq_work;
 	struct spi_device* spidevice;
-	struct gpio_desc *gpio_reset, *gpio_txen, *gpio_rxen;
-	struct timer_list *poll_timer;
+	struct gpio_desc *gpio_reset, *gpio_txen, *gpio_rxen, *gpio_dio0;
+	struct timer_list poll_timer;
 	u32 fosc;
 	enum sx127x_pa pa;
 	struct mutex mutex;
@@ -277,6 +277,15 @@ static int sx127x_reg_write24(struct spi_device *spi, u16 reg, u32 value){
 	dev_dbg(&spi->dev, "write: @%02x %06x\n", addr, value);
 	ret = spi_write(spi, buff, sizeof(buff));
 	return ret;
+}
+
+static void sx127x_timer(struct timer_list *t ){
+	//Checks DIO0, if it´s high, schedules work
+	struct sx127x *sx127x = from_timer(sx127x, t, poll_timer);
+	int val = gpiod_get_value(sx127x->gpio_dio0);
+	if (val){
+		schedule_work(&sx127x->irq_work);
+	};
 }
 
 static int sx127x_fifo_readpkt(struct spi_device *spi, void *buffer, u8 *len){
@@ -1122,10 +1131,11 @@ static int sx127x_probe(struct spi_device *spi){
 	// get the irq
 	irq = irq_of_parse_and_map(spi->dev.of_node, 0);
 	if (!irq) {
+		data->gpio_dio0 = devm_gpiod_get(&spi->dev, "dio0", GPIOD_IN);
 		dev_info(&spi->dev, "No irq in platform data\n");
 		irq = NULL;
-		init_timer(data->poll_timer);
-		tier_start
+		timer_setup(&data->poll_timer, sx127x_timer, 0);
+		mod_timer(&data->poll_timer, msecs_to_jiffies(10));
 	} else {
 		devm_request_irq(&spi->dev, irq, sx127x_irq, 0, SX127X_DRIVERNAME, data);
 	}
@@ -1172,6 +1182,7 @@ static int sx127x_probe(struct spi_device *spi){
 	err_allocdevdata:
 	return ret;
 }
+
 
 static int sx127x_remove(struct spi_device *spi){
 	struct sx127x *data = spi_get_drvdata(spi);
