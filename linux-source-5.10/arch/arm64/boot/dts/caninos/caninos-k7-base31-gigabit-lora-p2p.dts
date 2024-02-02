@@ -74,7 +74,7 @@
 			compatible = "caninos,sx127x-p2p";
 			reg = <1>;
 			reset-gpios = <&exgpio 0 GPIO_ACTIVE_LOW>;
-			dio0 = <&gpiob 11 GPIO_ACTIVE_HIGH>;
+			dio0-gpios = <&gpiob 11 GPIO_ACTIVE_HIGH>;
 		};
 	};
 

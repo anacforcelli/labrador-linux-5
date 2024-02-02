@@ -226,7 +226,7 @@ static LIST_HEAD(device_list);
 static DEFINE_MUTEX(device_list_lock);
 
 static int sx127x_reg_read(struct spi_device *spi, u16 reg, u8* result){
-	u8 addr = reg & 0xff;
+	u8 addr = reg & ~BIT(7);
 	int ret = spi_write_then_read(spi,
 			&addr, 1,
 			result, 1);
@@ -235,7 +235,7 @@ static int sx127x_reg_read(struct spi_device *spi, u16 reg, u8* result){
 }
 
 static int sx127x_reg_read16(struct spi_device *spi, u16 reg, u16* result){
-	u8 addr = reg & 0xff;
+	u8 addr = reg & ~BIT(7);
 	int ret = spi_write_then_read(spi,
 			&addr, 1,
 			result, 2);
@@ -244,7 +244,7 @@ static int sx127x_reg_read16(struct spi_device *spi, u16 reg, u16* result){
 }
 
 static int sx127x_reg_read24(struct spi_device *spi, u16 reg, u32* result){
-	u8 addr = reg & 0xff, buf[3];
+	u8 addr = reg & ~BIT(7), buf[3];
 	int ret = spi_write_then_read(spi,
 			&addr, 1,
 			buf, 3);
@@ -256,7 +256,7 @@ static int sx127x_reg_read24(struct spi_device *spi, u16 reg, u32* result){
 static int sx127x_reg_write(struct spi_device *spi, u16 reg, u8 value){
 	u8 addr = SX127X_REGADDR(reg), buff[2], readback;
 	int ret;
-	buff[0] = SX127X_WRITEADDR(addr);
+	buff[0] = SX127X_WRITEADDR(addr) | BIT(7);
 	buff[1] = value;
 	dev_dbg(&spi->dev, "write: @%02x %02x\n", addr, value);
 	ret = spi_write(spi, buff, 2);
@@ -282,7 +282,7 @@ static int sx127x_reg_write24(struct spi_device *spi, u16 reg, u32 value){
 static void sx127x_timer(struct timer_list *t ){
 	//Checks DIO0, if it´s high, schedules work
 	struct sx127x *sx127x = from_timer(sx127x, t, poll_timer);
-	int val = gpiod_get_value(sx127x->gpio_dio0);
+	int val = gpiod_get_value_cansleep(sx127x->gpio_dio0);
 	if (val){
 		schedule_work(&sx127x->irq_work);
 	};
@@ -1094,16 +1094,16 @@ static int sx127x_probe(struct spi_device *spi){
 	}
 
 	// get the reset gpio and reset the chip
-	data->gpio_reset = devm_gpiod_get(&spi->dev, "reset", GPIOD_OUT_LOW);
+	data->gpio_reset = devm_gpiod_get(&spi->dev, "reset", 0);
 	if(IS_ERR(data->gpio_reset)){
 		dev_err(&spi->dev, "reset gpio is required");
 		ret = -ENOMEM;
 		goto err_resetgpio;
 	}
 
-	gpiod_set_value(data->gpio_reset, 1);
+	gpiod_set_value_cansleep(data->gpio_reset, 1);
 	mdelay(100);
-	gpiod_set_value(data->gpio_reset, 0);
+	gpiod_set_value_cansleep(data->gpio_reset, 0);
 	mdelay(100);
 
 	// get the rev from the chip and check it's what we expect
@@ -1116,27 +1116,33 @@ static int sx127x_probe(struct spi_device *spi){
 	dev_warn(&spi->dev, "chip version %x\n",(unsigned) version);
 
 	// get the other optional gpios
-	data->gpio_txen = devm_gpiod_get_index(&spi->dev, "txrxswitch", 0, GPIOD_OUT_LOW);
+	data->gpio_txen = devm_gpiod_get_index(&spi->dev, "txrxswitch", 0, 0);
 	if(IS_ERR(data->gpio_txen)){
 		dev_warn(&spi->dev, "no tx enable\n");
 		data->gpio_txen = NULL;
 	}
 
-	data->gpio_rxen = devm_gpiod_get_index(&spi->dev, "txrxswitch", 1, GPIOD_OUT_LOW);
+	data->gpio_rxen = devm_gpiod_get_index(&spi->dev, "txrxswitch", 1, 0);
 	if(IS_ERR(data->gpio_rxen)){
 		dev_warn(&spi->dev, "no rx enable\n");
 		data->gpio_rxen = NULL;
 	}
 
-	// get the irq
 	irq = irq_of_parse_and_map(spi->dev.of_node, 0);
 	if (!irq) {
-		data->gpio_dio0 = devm_gpiod_get(&spi->dev, "dio0", GPIOD_IN);
 		dev_info(&spi->dev, "No irq in platform data\n");
 		irq = NULL;
+
+		data->gpio_dio0 = devm_gpiod_get(&spi->dev, "dio0", 0);
+		if (IS_ERR(data->gpio_dio0)){
+			dev_err(&spi->dev, "dio0 GPIO invalid!");
+			goto err_irq;
+		}
+
 		timer_setup(&data->poll_timer, sx127x_timer, 0);
 		mod_timer(&data->poll_timer, msecs_to_jiffies(10));
-	} else {
+	}
+	else {
 		devm_request_irq(&spi->dev, irq, sx127x_irq, 0, SX127X_DRIVERNAME, data);
 	}
 
