@@ -2,6 +2,7 @@
 #include <linux/interrupt.h>
 #include <linux/kstrtox.h>
 #include <linux/uaccess.h>
+#include <linux/timer.h>
 #include <linux/delay.h>
 
 #include "sx127x.h"
@@ -76,6 +77,15 @@ static int sx127x_reg_write24(struct spi_device *spi, u16 reg, u32 value){
 	dev_dbg(&spi->dev, "write: @%02x %06x\n", addr, value);
 	ret = spi_write(spi, buff, sizeof(buff));
 	return ret;
+}
+
+static void sx127x_timer(struct timer_list *t ){
+	//Checks DIO0, if it´s high, schedules work
+	struct sx127x *sx127x = from_timer(sx127x, t, poll_timer);
+	int val = gpiod_get_value(sx127x->gpio_dio0);
+	if (val){
+		schedule_work(&sx127x->irq_work);
+	};
 }
 
 static int sx127x_fifo_readpkt(struct spi_device *spi, void *buffer, u8 *len){
