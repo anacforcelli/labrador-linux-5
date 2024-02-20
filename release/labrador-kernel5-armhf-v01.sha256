@@ -2,6 +2,7 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 809cbb4dc3dddeb31e94dc4cce25a47c727a80b434a1635adafd132ccf47792b  labrador-kernel5-armhf-v01.tar.gz
 =======
 =======
@@ -10,6 +11,8 @@
 >>>>>>> 27be35050 (Minor modifications to caninos-drm driver in anticipation of future addition of new features.)
 =======
 >>>>>>> e6a47fcc1 (Added vsync support to caninos-drm.)
+=======
+>>>>>>> 417e1e7bd (Implemented various previously dummy ioctls)
 <<<<<<< HEAD
 ed92ea29a1b60b94030417beed424d38c6173bfa76177619bf372052771dffe6  labrador-kernel5-armhf-v01.tar.gz
 =======
@@ -33,4 +36,10 @@ ed92ea29a1b60b94030417beed424d38c6173bfa76177619bf372052771dffe6  labrador-kerne
 =======
 1838ea46f6708efd2c21c33d6ba3baa5187c0f87385535323d6baacfeba6d181  labrador-kernel5-armhf-v01.tar.gz
 >>>>>>> 69d96250d (Added vsync support to caninos-drm.)
+<<<<<<< HEAD
 >>>>>>> e6a47fcc1 (Added vsync support to caninos-drm.)
+=======
+=======
+9155a247f80d7ad63ea8270cddb2897688ccd1ce337828d6e78ce738862ee6bf  labrador-kernel5-armhf-v01.tar.gz
+>>>>>>> 29ce35267 (Implemented various previously dummy ioctls)
+>>>>>>> 417e1e7bd (Implemented various previously dummy ioctls)

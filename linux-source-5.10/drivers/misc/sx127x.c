@@ -80,12 +80,11 @@ static int sx127x_reg_write24(struct spi_device *spi, u16 reg, u32 value){
 }
 
 static void sx127x_timer(struct timer_list *t ){
-	//Checks DIO0, if it´s high, schedules work
 	struct sx127x *sx127x = from_timer(sx127x, t, poll_timer);
-	int val = gpiod_get_value_cansleep(sx127x->gpio_dio0);
-	if (val){
+	
+	//Checks DIO0, if it´s high, schedules work
+	if (gpiod_get_value_cansleep(sx127x->gpio_dio0))
 		schedule_work(&sx127x->irq_work);
-	};
 }
 
 static int sx127x_fifo_readpkt(struct spi_device *spi, void *buffer, u8 *len){
