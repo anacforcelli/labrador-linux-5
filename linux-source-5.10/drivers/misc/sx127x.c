@@ -79,14 +79,6 @@ static int sx127x_reg_write24(struct spi_device *spi, u16 reg, u32 value){
 	return ret;
 }
 
-static void sx127x_timer(struct timer_list *t ){
-	struct sx127x *sx127x = from_timer(sx127x, t, poll_timer);
-	
-	//Checks DIO0, if it´s high, schedules work
-	if (gpiod_get_value_cansleep(sx127x->gpio_dio0))
-		schedule_work(&sx127x->irq_work);
-}
-
 static int sx127x_fifo_readpkt(struct spi_device *spi, void *buffer, u8 *len){
 	u8 addr = SX127X_REG_FIFO, pktstart, rxbytes, off, fifoaddr;
 	size_t maxtransfer = spi_max_transfer_size(spi);
