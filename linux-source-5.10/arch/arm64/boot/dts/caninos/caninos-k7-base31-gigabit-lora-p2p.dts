@@ -71,7 +71,7 @@
 		};
 
 		sx1272: spi@1 {
-			compatible = "caninos,sx127x-simple";
+			compatible = "caninos,sx1272-simple";
 			reg = <1>;
 			reset-gpios = <&exgpio 0 GPIO_ACTIVE_LOW>;
 			dio0-gpios = <&gpiob 11 GPIO_ACTIVE_HIGH>;

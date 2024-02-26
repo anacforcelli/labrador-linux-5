@@ -89,13 +89,20 @@
 
 #define SX127X_REG_LORA_MODEMCONFIG1									SX127X_LORAREG(0x1d)
 #define SX127X_REG_LORA_MODEMCONFIG1_BW									(BIT(7) | BIT(6) | BIT(5) | BIT(4))
+#define SX1272_REG_LORA_MODEMCONFIG1_BW									(BIT(7) | BIT(6))
 #define SX127X_REG_LORA_MODEMCONFIG1_BW_SHIFT							4
+#define SX1272_REG_LORA_MODEMCONFIG1_BW_SHIFT							6
 #define SX127X_REG_LORA_MODEMCONFIG1_BW_MAX								9
+#define SX1272_REG_LORA_MODEMCONFIG1_CODINGRATE							(BIT(5) | BIT(4) | BIT(3))
 #define SX127X_REG_LORA_MODEMCONFIG1_CODINGRATE							(BIT(3) | BIT(2) | BIT(1))
 #define SX127X_REG_LORA_MODEMCONFIG1_CODINGRATE_SHIFT					1
+#define SX1272_REG_LORA_MODEMCONFIG1_CODINGRATE_SHIFT					3
 #define SX127X_REG_LORA_MODEMCONFIG1_CODINGRATE_MIN						1
 #define SX127X_REG_LORA_MODEMCONFIG1_CODINGRATE_MAX						6
 #define SX127X_REG_LORA_MODEMCONFIG1_IMPLICITHEADERMODEON				BIT(0)
+#define SX1272_REG_LORA_MODEMCONFIG1_IMPLICITHEADERMODEON				BIT(2)
+#define SX1272_REG_LORA_MODEMCONFIG1_RXPAYLOADCRCON						BIT(1)
+#define SX1272_REG_LORA_MODEMCONFIG1_LOWDATARATEOPTIMIZE				BIT(0)
 
 #define SX127X_REG_FSKOOK_FEILSB										SX127X_FSKOOKREG(0x1e)
 
@@ -177,12 +184,14 @@
 #define SX127X_REG_FSKOOK_PLLHOP										SX127X_FSKOOKREG(0x44)
 #define SX127X_REG_TCXO													0x4b
 #define SX127X_REG_PADAC												0x4d
+#define SX1272_REG_PADAC												0x5a
 #define SX127X_REG_FORMERTEMP											0x5b
 #define SX127X_REG_FSKOOK_BITRATEFRAC									SX127X_FSKOOKREG(0x5d)
 #define SX127X_REG_AGCREF												0x61
 #define SX127X_REG_AGCTHRESH1											0x62
 #define SX127X_REG_AGCTHRESH2											0x63
 #define SX127X_REG_AGCTHRESH3											0x64
+#define SX1272_REG_PLL													0x5c
 #define SX127X_REG_PLL													0x70
 
 static int devmajor;
@@ -194,7 +203,7 @@ static const char* opmodestr[] = {"sleep", "standby", "fstx", "tx", "fsrx", "rx"
 static const char* bwmap[] = { "7800", "10400", "15600", "20800", "31250", "41700", "62500", "125000", "2500000", "500000" };
 static const char* paoutput[] = {"rfo", "pa_boost"};
 static const char* implicitHeader[] = {"off", "on"};
-static const char* codingRate[] = {"4/5", "4/6", "4/7", "4/8"};
+static const char* codingRate[] = {NULL, "4/5", "4/6", "4/7", "4/8"};
 
 enum sx127x_ioctl_cmd {
 	SX127X_IOCTL_CMD_GETMODULATION,
@@ -249,6 +258,11 @@ enum sx127x_pa {
 	SX127X_PA_PABOOST
 };
 
+enum sx127x_model {
+	SX1272_3,
+	SX1276_7_8_9
+};
+
 struct sx127x_pkt {
 	size_t len;
 	size_t hdrlen;
@@ -262,12 +276,12 @@ struct sx127x_pkt {
 
 struct sx127x {
 	struct device *chardevice;
-	struct work_struct irq_work;
 	struct spi_device* spidevice;
 	struct gpio_desc *gpio_reset, *gpio_txen, *gpio_rxen, *gpio_dio0;
-	struct timer_list poll_timer;
 	u32 fosc;
 	struct mutex mutex;
+	struct work_struct irq_work, tx_work, rx_work;
+	bool polling;
 
 	struct list_head device_entry;
 	dev_t devt;
@@ -277,9 +291,11 @@ struct sx127x {
 	bool loraregmap;
 	enum sx127x_opmode opmode;
 	enum sx127x_pa pa;
+	enum sx127x_model model;
 	bool implicitHeader;
 	int freq, bw, cr, sf;
 	/* tx */
+	int tx_err;
 	wait_queue_head_t writewq;
 	int transmitted;
 	/* rx */

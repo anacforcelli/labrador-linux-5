@@ -13,7 +13,7 @@
 static LIST_HEAD(device_list);
 static DEFINE_MUTEX(device_list_lock);
 
-static int sx127x_reg_read(struct spi_device *spi, u16 reg, u8* result){
+static int sx127x_reg_read(struct spi_device *spi, u16 reg, u8 *result){
 	u8 addr = reg & ~BIT(7);
 	int ret = spi_write_then_read(spi,
 			&addr, 1,
@@ -22,7 +22,7 @@ static int sx127x_reg_read(struct spi_device *spi, u16 reg, u8* result){
 	return ret;
 }
 
-static int sx127x_reg_read16(struct spi_device *spi, u16 reg, u16* result){
+static int sx127x_reg_read16(struct spi_device *spi, u16 reg, u16 *result){
 	u8 addr = reg & ~BIT(7);
 	int ret = spi_write_then_read(spi,
 			&addr, 1,
@@ -31,7 +31,7 @@ static int sx127x_reg_read16(struct spi_device *spi, u16 reg, u16* result){
 	return ret;
 }
 
-static int sx127x_reg_read24(struct spi_device *spi, u16 reg, u32* result){
+static int sx127x_reg_read24(struct spi_device *spi, u16 reg, u32 *result){
 	u8 addr = reg & ~BIT(7), buf[3];
 	int ret = spi_write_then_read(spi,
 			&addr, 1,
@@ -48,10 +48,10 @@ static int sx127x_reg_write(struct spi_device *spi, u16 reg, u8 value){
 	buff[1] = value;
 	dev_dbg(&spi->dev, "write: @%02x %02x\n", addr, value);
 	ret = spi_write(spi, buff, 2);
-	ret = sx127x_reg_read(spi, reg, &readback);
-	if(readback != value){
-		dev_warn(&spi->dev, "read back does not match\n");
-	}
+	//ret = sx127x_reg_read(spi, reg, &readback);
+	//if(readback != value){
+	//	dev_warn(&spi->dev, "read back does not match\n");
+	//}
 	return ret;
 }
 
@@ -65,14 +65,6 @@ static int sx127x_reg_write24(struct spi_device *spi, u16 reg, u32 value){
 	dev_dbg(&spi->dev, "write: @%02x %06x\n", addr, value);
 	ret = spi_write(spi, buff, sizeof(buff));
 	return ret;
-}
-
-static void sx127x_timer(struct timer_list *t ){
-	struct sx127x *sx127x = from_timer(sx127x, t, poll_timer);
-	
-	//Checks DIO0, if it´s high, schedules work
-	if (gpiod_get_value_cansleep(sx127x->gpio_dio0))
-		schedule_work(&sx127x->irq_work);
 }
 
 static int sx127x_fifo_readpkt(struct spi_device *spi, void *buffer, u8 *len){
@@ -134,6 +126,22 @@ static int sx127x_fifo_writepkt(struct spi_device *spi, void *buffer, u8 len){
 	return ret;
 }
 
+static int sx127x_toggletxrxen(struct sx127x *data, bool tx){
+	if(data->gpio_txen){
+		if(tx){
+			dev_warn(data->chardevice, "enabling tx\n");
+		}
+		gpiod_set_value(data->gpio_txen, tx);
+	}
+	if(data->gpio_rxen){
+		if(!tx){
+			dev_warn(data->chardevice, "enabling rx\n");
+		}
+		gpiod_set_value(data->gpio_rxen, !tx);
+	}
+	return 0;
+}
+
 static enum sx127x_modulation sx127x_getmodulation(u8 opmode) {
 	u8 mod;
 	if(opmode & SX127X_REG_OPMODE_LONGRANGEMODE) {
@@ -160,6 +168,36 @@ static int sx127x_indexofstring(const char* str, const char** options, unsigned 
 		}
 	}
 	return -1;
+}
+
+static int sx127x_setsyncword(struct sx127x *data, u8 syncword){
+	dev_warn(data->chardevice, "setting syncword to %d\n", syncword);
+	sx127x_reg_write(data->spidevice, SX127X_REG_LORA_SYNCWORD, syncword);
+	return 0;
+}
+
+static int sx127x_setinvertiq(struct sx127x *data, bool invert){
+	u8 reg;
+	dev_warn(data->chardevice, "setting invertiq to %d\n", invert);
+	sx127x_reg_read(data->spidevice, SX127X_REG_LORA_INVERTIQ, &reg);
+	if(invert)
+		reg |= SX127X_REG_LORA_INVERTIQ_INVERTIQ;
+	else
+		reg &= ~SX127X_REG_LORA_INVERTIQ_INVERTIQ;
+	sx127x_reg_write(data->spidevice, SX127X_REG_LORA_INVERTIQ, reg);
+	return 0;
+}
+
+static int sx127x_setcrc(struct sx127x *data, bool crc){
+	u8 reg;
+	dev_warn(data->chardevice, "setting crc to %d\n", crc);
+	sx127x_reg_read(data->spidevice, SX127X_REG_LORA_MODEMCONFIG2, &reg);
+	if(crc)
+		reg |= SX127X_REG_LORA_MODEMCONFIG2_RXPAYLOADCRCON;
+	else
+		reg &= ~SX127X_REG_LORA_MODEMCONFIG2_RXPAYLOADCRCON;
+	sx127x_reg_write(data->spidevice, SX127X_REG_LORA_MODEMCONFIG2, reg);
+	return 0;
 }
 
 static ssize_t sx127x_modulation_show(struct device *child, struct device_attribute *attr, char *buf)
@@ -229,6 +267,7 @@ out:
 
 static DEVICE_ATTR(modulation, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH, sx127x_modulation_show, sx127x_modulation_store);
 
+
 static ssize_t sx127x_opmode_show(struct device *child, struct device_attribute *attr, char *buf)
 {
 	struct sx127x *data = dev_get_drvdata(child);
@@ -247,47 +286,38 @@ static ssize_t sx127x_opmode_show(struct device *child, struct device_attribute 
 	return ret;
 }
 
-static int sx127x_toggletxrxen(struct sx127x *data, bool tx){
-	if(data->gpio_txen){
-		if(tx){
-			dev_warn(data->chardevice, "enabling tx\n");
-		}
-		gpiod_set_value(data->gpio_txen, tx);
-	}
-	if(data->gpio_rxen){
-		if(!tx){
-			dev_warn(data->chardevice, "enabling rx\n");
-		}
-		gpiod_set_value(data->gpio_rxen, !tx);
-	}
-	return 0;
-}
-
 static int sx127x_setopmode(struct sx127x *data, enum sx127x_opmode mode, bool retain){
 	u8 opmode, diomapping1;
-	int ret = sx127x_reg_read(data->spidevice, SX127X_REG_OPMODE, &opmode);
+	int ret;
+
 	if(mode < SX127X_OPMODE_SLEEP || mode > SX127X_OPMODE_CAD){
 		ret = -EINVAL;
 		dev_err(data->chardevice, "invalid opmode\n");
 	}
-	else if((opmode & SX127X_REG_OPMODE_LONGRANGEMODE) && (mode == SX127X_OPMODE_RX)){
-		dev_err(data->chardevice, "opmode %s not valid in LoRa mode\n", opmodestr[mode]);
+
+	ret = sx127x_reg_read(data->spidevice, SX127X_REG_OPMODE, &opmode);
+	if(ret){
+		dev_err(data->chardevice, "register read error");
+		return ret;
+	}
+
+	if((opmode & SX127X_REG_OPMODE_LONGRANGEMODE) && (mode == SX127X_OPMODE_RX)){
+		dev_err(data->chardevice, "opmode %s not valid in LoRa mode, switching to RXCONTINUOUS\n", opmodestr[mode]);
 	}
 	else if(!(opmode & SX127X_REG_OPMODE_LONGRANGEMODE) && (mode > SX127X_OPMODE_RX)) {
 		dev_err(data->chardevice, "opmode %s not valid in FSK/OOK mode\n", opmodestr[mode]);
 	}
+
 	else {
 		if(retain){
-					data->opmode = mode;
+			data->opmode = mode;
 		}
 		dev_warn(data->chardevice, "setting opmode to %s\n", opmodestr[mode]);
+
 		sx127x_reg_read(data->spidevice, SX127X_REG_DIOMAPPING1, &diomapping1);
 		diomapping1 &= ~SX127X_REG_DIOMAPPING1_DIO0;
+
 		switch(mode){
-		case SX127X_OPMODE_CAD:
-			diomapping1 |= SX127X_REG_DIOMAPPING1_DIO0_CADDONE;
-			sx127x_toggletxrxen(data, false);
-			break;
 		case SX127X_OPMODE_TX:
 			diomapping1 |= SX127X_REG_DIOMAPPING1_DIO0_TXDONE;
 			sx127x_toggletxrxen(data, true);
@@ -298,51 +328,28 @@ static int sx127x_setopmode(struct sx127x *data, enum sx127x_opmode mode, bool r
 			diomapping1 |= SX127X_REG_DIOMAPPING1_DIO0_RXDONE;
 			sx127x_toggletxrxen(data, false);
 			break;
+		case SX127X_OPMODE_CAD:
+			diomapping1 |= SX127X_REG_DIOMAPPING1_DIO0_CADDONE;
+			sx127x_toggletxrxen(data, false);
+			break;
 		default:
-			dev_warn(data->chardevice, "disabling rx and tx\n");
-			gpiod_set_value(data->gpio_rxen, 0);
-			gpiod_set_value(data->gpio_txen, 0);
+			dev_warn(data->chardevice, "disabling rx and tx gpios\n");
+			if(data->gpio_rxen)
+				gpiod_set_value(data->gpio_rxen, 0);
+			if(data->gpio_txen)
+				gpiod_set_value(data->gpio_txen, 0);
 			break;
 		}
-		opmode &= ~SX127X_REG_OPMODE_MODE;
-		if(mode > SX127X_OPMODE_RX){
+
+		if(mode > SX127X_OPMODE_RX) //skip RX mode in LoRa
 			mode -= 1;
-		}
+
+		opmode &= ~SX127X_REG_OPMODE_MODE;
 		opmode |= mode;
 		sx127x_reg_write(data->spidevice, SX127X_REG_DIOMAPPING1, diomapping1);
 		sx127x_reg_write(data->spidevice, SX127X_REG_OPMODE, opmode);
 	}
 	return ret;
-}
-
-static int sx127x_setsyncword(struct sx127x *data, u8 syncword){
-	dev_warn(data->chardevice, "setting syncword to %d\n", syncword);
-	sx127x_reg_write(data->spidevice, SX127X_REG_LORA_SYNCWORD, syncword);
-	return 0;
-}
-
-static int sx127x_setinvertiq(struct sx127x *data, bool invert){
-	u8 reg;
-	dev_warn(data->chardevice, "setting invertiq to %d\n", invert);
-	sx127x_reg_read(data->spidevice, SX127X_REG_LORA_INVERTIQ, &reg);
-	if(invert)
-		reg |= SX127X_REG_LORA_INVERTIQ_INVERTIQ;
-	else
-		reg &= ~SX127X_REG_LORA_INVERTIQ_INVERTIQ;
-	sx127x_reg_write(data->spidevice, SX127X_REG_LORA_INVERTIQ, reg);
-	return 0;
-}
-
-static int sx127x_setcrc(struct sx127x *data, bool crc){
-	u8 reg;
-	dev_warn(data->chardevice, "setting crc to %d\n", crc);
-	sx127x_reg_read(data->spidevice, SX127X_REG_LORA_MODEMCONFIG2, &reg);
-	if(crc)
-		reg |= SX127X_REG_LORA_MODEMCONFIG2_RXPAYLOADCRCON;
-	else
-		reg &= ~SX127X_REG_LORA_MODEMCONFIG2_RXPAYLOADCRCON;
-	sx127x_reg_write(data->spidevice, SX127X_REG_LORA_MODEMCONFIG2, reg);
-	return 0;
 }
 
 static ssize_t sx127x_opmode_store(struct device *dev, struct device_attribute *attr,
@@ -365,6 +372,7 @@ out:
 }
 
 static DEVICE_ATTR(opmode, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH, sx127x_opmode_show, sx127x_opmode_store);
+
 
 static ssize_t sx127x_carrierfrequency_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
@@ -424,9 +432,12 @@ static ssize_t sx127x_rssi_show(struct device *dev, struct device_attribute *att
 {	
 	struct sx127x *data = dev_get_drvdata(dev);
 	u8 rssi, opmode;
-	bool lfmode;
+	bool lfmode = false;
 	sx127x_reg_read(data->spidevice, SX127X_REG_OPMODE, &opmode);
-	lfmode = (opmode & SX127X_REG_OPMODE_LOWFREQUENCYMODEON) && SX127X_REG_OPMODE_LOWFREQUENCYMODEON;
+
+	if(data->model == SX1276_7_8_9)
+		lfmode = (opmode & SX127X_REG_OPMODE_LOWFREQUENCYMODEON) && SX127X_REG_OPMODE_LOWFREQUENCYMODEON;
+
 	sx127x_reg_read(data->spidevice, SX127X_REG_LORA_RSSIVALUE, &rssi);
 	if(!lfmode)
 		rssi += -157;
@@ -454,27 +465,29 @@ static int sx127x_setsf(struct sx127x *data, unsigned sf){
 	u8 r;
 	dev_info(data->chardevice, "setting spreading factor to %u\n", sf);
 	data->sf = sf;
-	// set the spreading factor
 	sx127x_reg_read(data->spidevice, SX127X_REG_LORA_MODEMCONFIG2, &r);
 	r &= ~SX127X_REG_LORA_MODEMCONFIG2_SPREADINGFACTOR;
 	r |= sf << SX127X_REG_LORA_MODEMCONFIG2_SPREADINGFACTOR_SHIFT;
 	sx127x_reg_write(data->spidevice, SX127X_REG_LORA_MODEMCONFIG2, r);
 
-	// set the detection optimization magic number depending on the spreading factor
-	sx127x_reg_read(data->spidevice, SX127X_REG_LORA_DETECTOPTIMIZATION, &r);
-	r &= ~SX127X_REG_LORA_DETECTOPTIMIZATION_DETECTIONOPTIMIZE;
-	if(sf == 6){
-		r |= SX127X_REG_LORA_DETECTOPTIMIZATION_DETECTIONOPTIMIZE_SF6;
-	}
-	else{
-		r |= SX127X_REG_LORA_DETECTOPTIMIZATION_DETECTIONOPTIMIZE_SF7SF12;
-	}
-	sx127x_reg_write(data->spidevice, SX127X_REG_LORA_DETECTOPTIMIZATION, r);
+	if(data->model == SX1276_7_8_9) {
+		// set the detection optimization magic number depending on the spreading factor
+		sx127x_reg_read(data->spidevice, SX127X_REG_LORA_DETECTOPTIMIZATION, &r);
+		r &= ~SX127X_REG_LORA_DETECTOPTIMIZATION_DETECTIONOPTIMIZE;
+		if(sf == 6){
+			r |= SX127X_REG_LORA_DETECTOPTIMIZATION_DETECTIONOPTIMIZE_SF6;
+		}
+		else{
+			r |= SX127X_REG_LORA_DETECTOPTIMIZATION_DETECTIONOPTIMIZE_SF7SF12;
+		}
+		sx127x_reg_write(data->spidevice, SX127X_REG_LORA_DETECTOPTIMIZATION, r);
 
-	// set the low data rate bit
-	sx127x_reg_read(data->spidevice, SX127X_REG_LORA_MODEMCONFIG3, &r);
-	r |= SX127X_REG_LORA_MODEMCONFIG3_LOWDATARATEOPTIMIZE;
-	sx127x_reg_write(data->spidevice, SX127X_REG_LORA_MODEMCONFIG3, r);
+		// set the low data rate bit
+		sx127x_reg_read(data->spidevice, SX127X_REG_LORA_MODEMCONFIG3, &r);
+		r |= SX127X_REG_LORA_MODEMCONFIG3_LOWDATARATEOPTIMIZE;
+		sx127x_reg_write(data->spidevice, SX127X_REG_LORA_MODEMCONFIG3, r);
+	}
+
 	return 0;
 }
 
@@ -502,7 +515,11 @@ static ssize_t sx127x_bw_show(struct device *dev, struct device_attribute *attr,
 
 	mutex_lock(&data->mutex);
 	sx127x_reg_read(data->spidevice, SX127X_REG_LORA_MODEMCONFIG1, &config1);
-	bw = config1 >> SX127X_REG_LORA_MODEMCONFIG1_BW_SHIFT;
+	if(data->model == SX1272_3)
+		bw = config1 >> SX1272_REG_LORA_MODEMCONFIG1_BW_SHIFT;
+	else
+		bw = config1 >> SX127X_REG_LORA_MODEMCONFIG1_BW_SHIFT;
+
 	if(bw > SX127X_REG_LORA_MODEMCONFIG1_BW_MAX){
 		ret = sprintf(buf, "invalid\n");
 	}
@@ -516,8 +533,18 @@ static ssize_t sx127x_bw_show(struct device *dev, struct device_attribute *attr,
 static int sx127x_setbw(struct sx127x *data, int bw){
 	u8 config1; // bwopt1, bwopt2; 
 	sx127x_reg_read(data->spidevice, SX127X_REG_LORA_MODEMCONFIG1, &config1);
-	config1 &= ~(SX127X_REG_LORA_MODEMCONFIG1_BW);
-	config1 |= ((u8)bw << SX127X_REG_LORA_MODEMCONFIG1_BW_SHIFT);
+	switch (data->model)
+	{
+	case SX1272_3:
+		config1 &= ~(SX1272_REG_LORA_MODEMCONFIG1_BW);
+		config1 |= ((u8)bw << SX1272_REG_LORA_MODEMCONFIG1_BW_SHIFT);
+		break;
+	
+	case SX1276_7_8_9 :
+		config1 &= ~(SX127X_REG_LORA_MODEMCONFIG1_BW);
+		config1 |= ((u8)bw << SX127X_REG_LORA_MODEMCONFIG1_BW_SHIFT);
+		break;
+	}
 
 	sx127x_reg_write(data->spidevice, SX127X_REG_LORA_MODEMCONFIG1, config1);
 
@@ -551,13 +578,17 @@ static ssize_t sx127x_codingrate_show(struct device *dev, struct device_attribut
 
 	mutex_lock(&data->mutex);
 	sx127x_reg_read(data->spidevice, SX127X_REG_LORA_MODEMCONFIG1, &config1);
-	cr = (config1 & SX127X_REG_LORA_MODEMCONFIG1_CODINGRATE) >> SX127X_REG_LORA_MODEMCONFIG1_CODINGRATE_SHIFT;
+	if (data->model == SX1272_3)
+		cr = ((config1 & SX1272_REG_LORA_MODEMCONFIG1_CODINGRATE) >> SX1272_REG_LORA_MODEMCONFIG1_CODINGRATE_SHIFT);
+	else 
+		cr = ((config1 & SX127X_REG_LORA_MODEMCONFIG1_CODINGRATE) >> SX127X_REG_LORA_MODEMCONFIG1_CODINGRATE_SHIFT);
+
 	if(cr < SX127X_REG_LORA_MODEMCONFIG1_CODINGRATE_MIN ||
 			cr > SX127X_REG_LORA_MODEMCONFIG1_CODINGRATE_MAX){
 		ret = sprintf(buf, "Invalid CR read from IC\n");
 	}
 	else {
-		ret = sprintf(buf, "%s\n", codingRate[cr-1]);
+		ret = sprintf(buf, "%s\n", codingRate[cr]);
 	}
 	mutex_unlock(&data->mutex);
     return ret;
@@ -572,8 +603,16 @@ static int sx127x_setcodingrate(struct sx127x *data, int cr){
 		goto out;
 	}
 
-	config1 &= ~(SX127X_REG_LORA_MODEMCONFIG1_CODINGRATE);
-	config1 |= ((u8)cr << SX127X_REG_LORA_MODEMCONFIG1_CODINGRATE_SHIFT);
+	switch(data->model){
+	case SX1272_3:
+		config1 &= ~(SX1272_REG_LORA_MODEMCONFIG1_CODINGRATE);
+		config1 |= ((u8)cr << SX1272_REG_LORA_MODEMCONFIG1_CODINGRATE_SHIFT);
+		break;
+	case SX1276_7_8_9:
+		config1 &= ~(SX127X_REG_LORA_MODEMCONFIG1_CODINGRATE);
+		config1 |= ((u8)cr << SX127X_REG_LORA_MODEMCONFIG1_CODINGRATE_SHIFT);
+		break;
+	}
 
 	sx127x_reg_write(data->spidevice, SX127X_REG_LORA_MODEMCONFIG1, config1);
 out:
@@ -586,12 +625,10 @@ static ssize_t sx127x_codingrate_store(struct device *dev, struct device_attribu
 	struct sx127x *data = dev_get_drvdata(dev);
 
 	cr = sx127x_indexofstring(buf, codingRate, sizeof(codingRate));
-	if(cr == -1){
+	if(cr == -1 || cr == 0){
 		dev_warn(data->chardevice, "Invalid CR");
 		goto out;
 	}
-
-	cr++; //So that bit magic works
 
 	mutex_lock(&data->mutex);
 	sx127x_setcodingrate(data, cr);
@@ -600,7 +637,7 @@ out:
 	return count;
 }
 
-static DEVICE_ATTR(codingrate, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH, sx127x_codingrate_show, sx127x_codingrate_store);
+static DEVICE_ATTR(cr, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH, sx127x_codingrate_show, sx127x_codingrate_store);
 
 static ssize_t sx127x_implicitheadermode_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
@@ -610,7 +647,11 @@ static ssize_t sx127x_implicitheadermode_show(struct device *dev, struct device_
 
 	mutex_lock(&data->mutex);
 	sx127x_reg_read(data->spidevice, SX127X_REG_LORA_MODEMCONFIG1, &config1);
-	hdrmode = config1 & SX127X_REG_LORA_MODEMCONFIG1_IMPLICITHEADERMODEON;
+	if(data->model == SX1272_3)
+		hdrmode = config1 & SX1272_REG_LORA_MODEMCONFIG1_IMPLICITHEADERMODEON;
+	else
+		hdrmode = config1 & SX127X_REG_LORA_MODEMCONFIG1_IMPLICITHEADERMODEON;
+		
 	mutex_unlock(&data->mutex);
     return sprintf(buf, "%d\n", hdrmode);
 }
@@ -621,11 +662,18 @@ static ssize_t sx127x_setimplicitheadermode(struct sx127x *data, int val) {
 	sx127x_reg_read(data->spidevice,SX127X_REG_LORA_PAYLOADLENGTH, &payloadLength);
 	sx127x_reg_read(data->spidevice, SX127X_REG_LORA_MODEMCONFIG1, &config1);
 	if (val){
-		config1 |= (SX127X_REG_LORA_MODEMCONFIG1_IMPLICITHEADERMODEON);
+		if(data->model == SX1272_3)
+			config1 |= (SX1272_REG_LORA_MODEMCONFIG1_IMPLICITHEADERMODEON);
+		else
+			config1 |= (SX127X_REG_LORA_MODEMCONFIG1_IMPLICITHEADERMODEON);
 		dev_warn(data->chardevice, "Implicit header mode on, payload length is: %d", payloadLength);
+
+	} else {
+		if(data->model == SX1272_3)
+			config1 &= ~(SX1272_REG_LORA_MODEMCONFIG1_IMPLICITHEADERMODEON);
+		else
+			config1 &= ~(SX127X_REG_LORA_MODEMCONFIG1_IMPLICITHEADERMODEON);
 	}
-	else
-		config1 &= ~(SX127X_REG_LORA_MODEMCONFIG1_IMPLICITHEADERMODEON);
 
 	sx127x_reg_write(data->spidevice, SX127X_REG_LORA_MODEMCONFIG1, config1);
 	return 0;
@@ -663,7 +711,6 @@ static ssize_t sx127x_payloadlength_show(struct device *dev, struct device_attri
 }
 
 static int sx127x_setpayloadlength(struct sx127x *data, int len) {
-
 	sx127x_reg_write(data->spidevice, SX127X_REG_LORA_PAYLOADLENGTH, (u8)len);
 	return 0;
 }
@@ -757,20 +804,33 @@ static ssize_t sx127x_outputpower_show(struct device *dev, struct device_attribu
 	mutex_unlock(&data->mutex);
     return sprintf(buf, "%d\n", outputpower);
 }
+
 static ssize_t sx127x_setoutputpower(struct sx127x *data, int power){
 	u8 paconfig, padac;
 	bool paselect;
 	int maxoutputpower;
 
 	sx127x_reg_read(data->spidevice, SX127X_REG_PACONFIG, &paconfig);
-	sx127x_reg_read(data->spidevice, SX127X_REG_PADAC, &padac);
+
+	switch(data->model){
+		case(SX1272_3):
+			sx127x_reg_read(data->spidevice, SX1272_REG_PADAC, &padac);
+			break;
+		case(SX1276_7_8_9):
+			sx127x_reg_read(data->spidevice, SX127X_REG_PADAC, &padac);
+			break;
+	}
 
 	paselect = paconfig & SX127X_REG_PACONFIG_PASELECT;
 
 	padac &= ~(BIT(2) | BIT(1) | BIT(0));
 
-	if(!paselect)
-		maxoutputpower = ((paconfig & SX127X_REG_PACONFIG_MAXPOWER) >> SX127X_REG_PACONFIG_MAXPOWER_SHIFT);
+	if(!paselect){
+		if(data->model == SX1276_7_8_9)
+			maxoutputpower = ((paconfig & SX127X_REG_PACONFIG_MAXPOWER) >> SX127X_REG_PACONFIG_MAXPOWER_SHIFT);
+		else
+			maxoutputpower = 13;
+	}
 	else
 		maxoutputpower = 20;
 
@@ -779,21 +839,32 @@ static ssize_t sx127x_setoutputpower(struct sx127x *data, int power){
 		goto out;
 	}
 
-	if(!paselect){
-		paconfig &= ~(SX127X_REG_PACONFIG_OUTPUTPOWER);
-		paconfig |= maxoutputpower - (15 - (power & SX127X_REG_PACONFIG_OUTPUTPOWER));
-	} else if (power <= 17){
-		paconfig &= ~(SX127X_REG_PACONFIG_OUTPUTPOWER);
-		paconfig |= (power - 2) & SX127X_REG_PACONFIG_OUTPUTPOWER;
+	paconfig &= ~(SX127X_REG_PACONFIG_OUTPUTPOWER);
+
+	if(power <= 18)	{
 		padac |= 0x4;
+		if(!paselect){
+			if(data->model == SX1272_3)
+				paconfig |= ((power + 1) & SX127X_REG_PACONFIG_OUTPUTPOWER);
+			else
+				paconfig |= ((maxoutputpower - (15 - power)) & SX127X_REG_PACONFIG_OUTPUTPOWER);
+		} else 
+			paconfig |= ((power - 2) & SX127X_REG_PACONFIG_OUTPUTPOWER);
 	} else {
 		padac |= 0x7;
 		paconfig |= SX127X_REG_PACONFIG_OUTPUTPOWER;
 	}
 
 	sx127x_reg_write(data->spidevice, SX127X_REG_PACONFIG, paconfig);
-	sx127x_reg_write(data->spidevice, SX127X_REG_PADAC, padac);
 
+	switch(data->model){
+		case(SX1272_3):
+			sx127x_reg_write(data->spidevice, SX1272_REG_PADAC, padac);
+			break;
+		case(SX1276_7_8_9):
+			sx127x_reg_write(data->spidevice, SX127X_REG_PADAC, padac);
+			break;
+	}
 out:
 	return 0;
 }
@@ -804,7 +875,7 @@ static ssize_t sx127x_outputpower_store(struct device *dev, struct device_attrib
 	int ret, power;
 
 	ret = kstrtoint(buf, 10, &power);
-	if (!ret){
+	if (ret){
 		dev_warn(data->chardevice, "Invalid power value");
 		goto out;
 	}
@@ -820,17 +891,179 @@ static DEVICE_ATTR(outputpower, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH,
 		sx127x_outputpower_show, sx127x_outputpower_store);
 
 static int sx127x_dumpregs(struct sx127x *data){
-	u8 opmode, pacfg, modemstat, modemcfg1, modemcfg2, modemcfg3, irqflags;
+	u8 opmode, pacfg, modemstat, modemcfg1, modemcfg2, irqflags;
 
 	sx127x_reg_read(data->spidevice, SX127X_REG_OPMODE, &opmode);
 	sx127x_reg_read(data->spidevice, SX127X_REG_PACONFIG, &pacfg);
 	sx127x_reg_read(data->spidevice, SX127X_REG_LORA_MODEMSTAT, &modemstat);
 	sx127x_reg_read(data->spidevice, SX127X_REG_LORA_MODEMCONFIG1, &modemcfg1);
 	sx127x_reg_read(data->spidevice, SX127X_REG_LORA_MODEMCONFIG2, &modemcfg2);
-	sx127x_reg_read(data->spidevice, SX127X_REG_PACONFIG, &modemcfg3);
-	sx127x_reg_read(data->spidevice, SX127X_REG_PACONFIG, &irqflags);
-	dev_warn(data->chardevice, "REG DUMP:\n\topmode: %x\n\tpacfg: %x\n\tmodemstat: %x\n\tmodemcfg1: %x\n\tmodemcfg2: %x\n\tmodemcfg3: %x\n\tirqflags: %x", opmode, pacfg, modemstat, modemcfg1, modemcfg2, modemcfg3, irqflags);
+	sx127x_reg_read(data->spidevice, SX127X_REG_LORA_IRQFLAGS, &irqflags);
+	dev_warn(data->chardevice, "REG DUMP:\n\topmode: %x\n\tpacfg: %x\n\tmodemstat: %x\n\tmodemcfg1: %x\n\tmodemcfg2: %x\n\tirqflags: %x", opmode, pacfg, modemstat, modemcfg1, modemcfg2, irqflags);
 	return 0;
+}
+
+
+static irqreturn_t sx127x_irq(int irq, void *dev_id)
+{
+	struct sx127x *data = dev_id;
+	schedule_work(&data->irq_work);
+	return IRQ_HANDLED;
+}
+
+
+static void sx127x_tx_work(struct work_struct *work) // Halts code execution while tx messages are being sent, returns once job is finished or errors out.
+{
+	struct sx127x *data = container_of(work, struct sx127x, tx_work);
+	int counter = 0, ret;
+	u8 irqflags;
+	struct spi_device* spi  = data->spidevice;
+	while(1)
+	{
+		msleep(10);
+		if (counter > 100) {
+			data->tx_err = -ETIMEDOUT;
+			dev_warn(data->chardevice, "TX error: %d \n", data->tx_err);
+			data->transmitted = 1;
+			wake_up(&data->writewq);
+			return;
+		}
+
+		ret = gpiod_get_value_cansleep(data->gpio_dio0);
+
+		if (ret < 0) {
+			data->transmitted = 1;
+			data->tx_err = ret;
+			dev_warn(data->chardevice, "TX error: %d \n", data->tx_err);
+			wake_up(&data->writewq);
+			return;
+		}
+		if (!ret)
+			continue;
+
+		sx127x_reg_read(spi , SX127X_REG_LORA_IRQFLAGS, &irqflags);
+
+		if(irqflags & SX127X_REG_LORA_IRQFLAGS_TXDONE) {
+			if(data->gpio_txen)
+				gpiod_set_value(data->gpio_txen, 0);			
+			dev_warn(data->chardevice, "transmitted packet\n");
+			data->transmitted = 1;
+			wake_up(&data->writewq);
+			return;
+		}
+
+		counter++;
+	}
+}
+
+static void sx127x_rx_work(struct work_struct *work){
+	struct sx127x *data = container_of(work, struct sx127x, rx_work);
+	u8 irqflags, buf[128], len, snr, rssi, count = 0;
+	u32 fei;
+	struct sx127x_pkt pkt;	
+
+	mutex_lock(&data->mutex);
+
+	while(1){
+		count++;
+		if (count > 100){
+			dev_warn(data->chardevice, "Timeout reached");
+			break;
+		}
+
+		sx127x_reg_read(data->spidevice, SX127X_REG_LORA_IRQFLAGS, &irqflags);
+
+		if(irqflags & SX127X_REG_LORA_IRQFLAGS_RXDONE) {
+			dev_warn(data->chardevice, "reading packet\n");
+			memset(&pkt, 0, sizeof(pkt));
+
+			sx127x_fifo_readpkt(data->spidevice, buf, &len);
+			sx127x_reg_read(data->spidevice, SX127X_REG_LORA_PKTSNRVALUE, &snr);
+			sx127x_reg_read(data->spidevice, SX127X_REG_LORA_PKTRSSIVALUE, &rssi);
+			sx127x_reg_read24(data->spidevice, SX127X_REG_LORA_FEIMSB, &fei);
+
+			pkt.hdrlen = sizeof(pkt);
+			pkt.payloadlen = len;
+			pkt.len = pkt.hdrlen + pkt.payloadlen;
+			pkt.snr = (__s16)(snr << 2) / 4 ;
+			pkt.rssi = -157 + rssi; //TODO fix this for the LF port 
+
+			if(irqflags & SX127X_REG_LORA_IRQFLAGS_PAYLOADCRCERROR){
+				dev_warn(data->chardevice, "CRC Error for received payload\n");
+				pkt.crcfail = 1;
+			}
+			
+			if(data->gpio_rxen){
+				gpiod_set_value(data->gpio_rxen, 0);
+			}
+
+			kfifo_in(&data->out, &pkt, sizeof(pkt));
+			kfifo_in(&data->out, buf, len);
+			wake_up(&data->readwq);
+			break;
+
+		} else {
+			continue;
+		}
+	}	
+
+	sx127x_reg_write(data->spidevice, SX127X_REG_LORA_IRQFLAGS, 0xff);
+	mutex_unlock(&data->mutex);
+	return;
+}
+
+static void sx127x_irq_work_handler(struct work_struct *work){
+	struct sx127x *data = container_of(work, struct sx127x, irq_work);
+	u8 irqflags, buf[128], len, snr, rssi;
+	u32 fei;
+	struct sx127x_pkt pkt;
+	mutex_lock(&data->mutex);
+	sx127x_reg_read(data->spidevice, SX127X_REG_LORA_IRQFLAGS, &irqflags);
+	if(irqflags & SX127X_REG_LORA_IRQFLAGS_RXDONE){
+		dev_warn(data->chardevice, "reading packet\n");
+		memset(&pkt, 0, sizeof(pkt));
+
+		sx127x_fifo_readpkt(data->spidevice, buf, &len);
+		sx127x_reg_read(data->spidevice, SX127X_REG_LORA_PKTSNRVALUE, &snr);
+		sx127x_reg_read(data->spidevice, SX127X_REG_LORA_PKTRSSIVALUE, &rssi);
+		sx127x_reg_read24(data->spidevice, SX127X_REG_LORA_FEIMSB, &fei);
+
+		pkt.hdrlen = sizeof(pkt);
+		pkt.payloadlen = len;
+		pkt.len = pkt.hdrlen + pkt.payloadlen;
+		pkt.snr = (__s16)(snr << 2) / 4 ;
+		pkt.rssi = -157 + rssi; //TODO fix this for the LF port
+
+		if(irqflags & SX127X_REG_LORA_IRQFLAGS_PAYLOADCRCERROR){
+			dev_warn(data->chardevice, "CRC Error for received payload\n");
+			pkt.crcfail = 1;
+		}
+
+		kfifo_in(&data->out, &pkt, sizeof(pkt));
+		kfifo_in(&data->out, buf, len);
+		wake_up(&data->readwq);
+	}
+	else if(irqflags & SX127X_REG_LORA_IRQFLAGS_TXDONE){
+		if(data->gpio_txen){
+			gpiod_set_value(data->gpio_txen, 0);
+		}
+		dev_warn(data->chardevice, "transmitted packet\n");
+		data->transmitted = 1;
+		wake_up(&data->writewq);
+	}
+	else if(irqflags & SX127X_REG_LORA_IRQFLAGS_CADDONE){
+		if(irqflags & SX127X_REG_LORA_IRQFLAGS_CADDETECTED){
+			dev_info(data->chardevice, "CAD done, detected activity\n");
+		}
+		else {
+			dev_info(data->chardevice, "CAD done, nothing detected\n");
+		}
+	}
+	else {
+		dev_err(&data->spidevice->dev, "unhandled interrupt state %02x\n", (unsigned) irqflags);
+	}
+	sx127x_reg_write(data->spidevice, SX127X_REG_LORA_IRQFLAGS, 0xff);
+	mutex_unlock(&data->mutex);
 }
 
 static int sx127x_dev_open(struct inode *inode, struct file *file){
@@ -876,11 +1109,23 @@ static ssize_t sx127x_dev_read(struct file *filp, char __user *buf, size_t count
 	struct sx127x *data = filp->private_data;
 	unsigned copied;
 	ssize_t ret = 0;
+	
+	mutex_lock(&data->mutex);
+	sx127x_setopmode(data, SX127X_OPMODE_RXSINGLE, false);
+	mutex_unlock(&data->mutex);
+
+	if(data->polling){
+		schedule_work(&data->rx_work);
+	}
+
 	wait_event_interruptible(data->readwq, kfifo_len(&data->out));
 	ret = kfifo_to_user(&data->out, buf, count, &copied);
 	if(!ret && copied > 0){
 		ret = copied;
 	}
+
+	sx127x_setopmode(data, data->opmode, false);
+
 	return ret;
 }
 
@@ -889,7 +1134,8 @@ static ssize_t sx127x_dev_write(struct file *filp, const char __user *buf, size_
 	size_t packetsz, offset, maxpkt = 256;
 	u8 kbuf[256];
 	dev_info(&data->spidevice->dev, "char device write; %d\n", (int)count);
-	for(offset = 0; offset < count; offset += maxpkt){
+
+	for(offset = 0; offset < count; offset += maxpkt) {
 		packetsz = min((count - offset), maxpkt);
 		mutex_lock(&data->mutex);
 		copy_from_user(kbuf, buf + offset, packetsz);
@@ -898,8 +1144,16 @@ static ssize_t sx127x_dev_write(struct file *filp, const char __user *buf, size_
 		data->transmitted = 0;
 		sx127x_setopmode(data, SX127X_OPMODE_TX, false);
 		mutex_unlock(&data->mutex);
-		wait_event_interruptible_timeout(data->writewq, data->transmitted, 60 * HZ);
+
+		if(data->polling){
+			schedule_work(&data->tx_work);
+		}
+
+		wait_event_interruptible_timeout(data->writewq, data->transmitted == 1, 60 * HZ);
 	}
+
+	sx127x_setopmode(data, data->opmode, false);
+
 	return count;
 }
 
@@ -917,8 +1171,10 @@ static long sx127x_dev_ioctl(struct file *filp, unsigned int cmd, unsigned long 
 	struct sx127x *data = filp->private_data;
 	int ret;
 	enum sx127x_ioctl_cmd ioctlcmd = cmd;
+
 	mutex_lock(&data->mutex);
-	switch(ioctlcmd){
+	//sx127x_setopmode(data, SX127X_OPMODE_STANDBY, false);
+	switch(ioctlcmd) {
 		case SX127X_IOCTL_CMD_SETMODULATION:
 			ret = sx127x_setmodulation(data, arg);
 			break;
@@ -986,7 +1242,9 @@ static long sx127x_dev_ioctl(struct file *filp, unsigned int cmd, unsigned long 
 			ret = -EINVAL;
 			break;
 	}
+	//sx127x_setopmode(data, data->opmode, false);
 	mutex_unlock(&data->mutex);
+
 	return ret;
 }
 
@@ -997,72 +1255,6 @@ static struct file_operations fops = {
 		.release = sx127x_dev_release,
 		.unlocked_ioctl = sx127x_dev_ioctl
 };
-
-static irqreturn_t sx127x_irq(int irq, void *dev_id)
-{
-	struct sx127x *data = dev_id;
-	schedule_work(&data->irq_work);
-	return IRQ_HANDLED;
-}
-
-static void sx127x_irq_work_handler(struct work_struct *work){
-	struct sx127x *data = container_of(work, struct sx127x, irq_work);
-	u8 irqflags, buf[128], len, snr, rssi;
-	u32 fei;
-	struct sx127x_pkt pkt;
-	mutex_lock(&data->mutex);
-	sx127x_reg_read(data->spidevice, SX127X_REG_LORA_IRQFLAGS, &irqflags);
-	if(irqflags & SX127X_REG_LORA_IRQFLAGS_RXDONE){
-		dev_warn(data->chardevice, "reading packet\n");
-		memset(&pkt, 0, sizeof(pkt));
-
-		sx127x_fifo_readpkt(data->spidevice, buf, &len);
-		sx127x_reg_read(data->spidevice, SX127X_REG_LORA_PKTSNRVALUE, &snr);
-		sx127x_reg_read(data->spidevice, SX127X_REG_LORA_PKTRSSIVALUE, &rssi);
-		sx127x_reg_read24(data->spidevice, SX127X_REG_LORA_FEIMSB, &fei);
-
-		pkt.hdrlen = sizeof(pkt);
-		pkt.payloadlen = len;
-		pkt.len = pkt.hdrlen + pkt.payloadlen;
-		pkt.snr = (__s16)(snr << 2) / 4 ;
-		pkt.rssi = -157 + rssi; //TODO fix this for the LF port
-
-		if(irqflags & SX127X_REG_LORA_IRQFLAGS_PAYLOADCRCERROR){
-			dev_warn(data->chardevice, "CRC Error for received payload\n");
-			pkt.crcfail = 1;
-		}
-
-		kfifo_in(&data->out, &pkt, sizeof(pkt));
-		kfifo_in(&data->out, buf, len);
-		wake_up(&data->readwq);
-	}
-	else if(irqflags & SX127X_REG_LORA_IRQFLAGS_TXDONE){
-		if(data->gpio_txen){
-			gpiod_set_value(data->gpio_txen, 0);
-		}
-		dev_warn(data->chardevice, "transmitted packet\n");
-		/* after tx the chip goes back to standby so restore the user selected mode if it wasn't standby */
-		if(data->opmode != SX127X_OPMODE_STANDBY){
-			dev_info(data->chardevice, "restoring opmode\n");
-			sx127x_setopmode(data, data->opmode, false);
-		}
-		data->transmitted = 1;
-		wake_up(&data->writewq);
-	}
-	else if(irqflags & SX127X_REG_LORA_IRQFLAGS_CADDONE){
-		if(irqflags & SX127X_REG_LORA_IRQFLAGS_CADDETECTED){
-			dev_info(data->chardevice, "CAD done, detected activity\n");
-		}
-		else {
-			dev_info(data->chardevice, "CAD done, nothing detected\n");
-		}
-	}
-	else {
-		dev_err(&data->spidevice->dev, "unhandled interrupt state %02x\n", (unsigned) irqflags);
-	}
-	sx127x_reg_write(data->spidevice, SX127X_REG_LORA_IRQFLAGS, 0xff);
-	mutex_unlock(&data->mutex);
-}
 
 static int sx127x_probe(struct spi_device *spi){
 	int ret = 0;
@@ -1080,7 +1272,6 @@ static int sx127x_probe(struct spi_device *spi){
 	}
 
 	data->open = 0;
-	INIT_WORK(&data->irq_work, sx127x_irq_work_handler);
 	INIT_LIST_HEAD(&data->device_entry);
 	init_waitqueue_head(&data->readwq);
 	init_waitqueue_head(&data->writewq);
@@ -1108,7 +1299,7 @@ static int sx127x_probe(struct spi_device *spi){
 		printk("failed to allocate out fifo\n");
 		goto err_allocoutfifo;
 	}
-	// TODO Adjust reset value for different models
+
 	data->gpio_reset = devm_gpiod_get(&spi->dev, "reset", 0);
 	if(IS_ERR(data->gpio_reset)){
 		dev_err(&spi->dev, "reset gpio is required");
@@ -1116,19 +1307,32 @@ static int sx127x_probe(struct spi_device *spi){
 		goto err_resetgpio;
 	}
 
-	gpiod_set_value_cansleep(data->gpio_reset, 0);
-	mdelay(100);
-	gpiod_set_value_cansleep(data->gpio_reset, 1);
-	mdelay(100);
+	data->model = (enum sx127x_model) of_device_get_match_data(&spi->dev);
+	
+	switch(data->model){
+		case(SX1272_3):
+			gpiod_set_value_cansleep(data->gpio_reset, 1);
+			udelay(500);
+			gpiod_set_value_cansleep(data->gpio_reset, 0);
+			mdelay(5);
+			break;
+		case(SX1276_7_8_9):
+			gpiod_set_value_cansleep(data->gpio_reset, 0);
+			udelay(500);
+			gpiod_set_value_cansleep(data->gpio_reset, 1);
+			mdelay(5);
+			break;
+		default:
+			break;
+	}
 
 	sx127x_reg_read(spi, SX127X_REG_VERSION, &version);
 
-	//TODO block implicit header mode on certin versions
 	switch(version){
-		case 0x12:
+		case 0x22:
 			dev_info(&spi->dev, "chip is SX1272/73\n");
 			break;
-		case 0x22:
+		case 0x12:
 			dev_info(&spi->dev, "chip is SX1276/7/8/9\n");
 			break;
 		default:
@@ -1157,9 +1361,9 @@ static int sx127x_probe(struct spi_device *spi){
 			dev_err(&spi->dev, "dio0 GPIO invalid!");
 			goto err_irq;
 		}
-
-		timer_setup(&data->poll_timer, sx127x_timer, 0);
-		mod_timer(&data->poll_timer, msecs_to_jiffies(10));
+		INIT_WORK(&data->tx_work, sx127x_tx_work);
+		INIT_WORK(&data->rx_work, sx127x_rx_work);
+		data->polling = true;
 	}
 	else {
 		ret = devm_request_irq(&spi->dev, irq, sx127x_irq, 0, SX127X_DRIVERNAME, data);
@@ -1167,6 +1371,8 @@ static int sx127x_probe(struct spi_device *spi){
 			dev_warn(data->chardevice, "IRQ request error");
 			goto err_irq;
 		}
+		INIT_WORK(&data->irq_work, sx127x_irq_work_handler);
+		data->polling = false;
 	}
 
 	// create the frontend device and stash it in the spi device
@@ -1193,7 +1399,7 @@ static int sx127x_probe(struct spi_device *spi){
 	// these are LoRa specifc
 	ret = device_create_file(data->chardevice, &dev_attr_sf);
 	ret = device_create_file(data->chardevice, &dev_attr_bw);
-	ret = device_create_file(data->chardevice, &dev_attr_codingrate);
+	ret = device_create_file(data->chardevice, &dev_attr_cr);
 	ret = device_create_file(data->chardevice, &dev_attr_implicitheadermode);
 	ret = device_create_file(data->chardevice, &dev_attr_payloadLength);
 
@@ -1228,7 +1434,7 @@ static int sx127x_remove(struct spi_device *spi){
 
 	device_remove_file(data->chardevice, &dev_attr_sf);
 	device_remove_file(data->chardevice, &dev_attr_bw);
-	device_remove_file(data->chardevice, &dev_attr_codingrate);
+	device_remove_file(data->chardevice, &dev_attr_cr);
 	device_remove_file(data->chardevice, &dev_attr_implicitheadermode);
 	device_remove_file(data->chardevice, &dev_attr_payloadLength);
 
@@ -1241,9 +1447,8 @@ static int sx127x_remove(struct spi_device *spi){
 }
 
 static const struct of_device_id sx127x_of_match[] = {
-	{
-		.compatible = "caninos,sx127x-simple",
-	},
+	{.compatible = "caninos,sx1272-simple", .data = (void *) SX1272_3, },
+	{.compatible = "caninos,sx1276-simple", .data = (void *) SX1276_7_8_9, },
 	{ },
 };
 MODULE_DEVICE_TABLE(of, sx127x_of_match);
