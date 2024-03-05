@@ -571,6 +571,13 @@
 					compatible = "actions,atc2603c-battery";
 					status = "okay";
 				};
+
+				atc260x_gpio: atc260x_gpio {
+					compatible = "actions,atc2603c-gpio";
+					gpio-controller;
+					gpio-cells = <2>;
+					status = "okay";
+				};
 			};
 		};
 		

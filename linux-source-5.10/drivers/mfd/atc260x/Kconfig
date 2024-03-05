@@ -22,3 +22,8 @@ config MFD_ATC260X_BATTERY
 	help
 	  Support for ATC260x PMICs battery charging.
 
+config MFD_ATC260X_GPIO
+	tristate "ATC260x PMICs GPIO"
+	depends on MFD_ATC260X
+	help
+	  Support for ATC260x GPIO.

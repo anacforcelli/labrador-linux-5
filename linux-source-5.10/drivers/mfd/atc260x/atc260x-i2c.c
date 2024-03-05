@@ -56,6 +56,7 @@ static const struct mfd_cell sc_atc2603c_cells[] = {
 	MFD_CELL_OF_NAME("atc2603c-audio", "actions,atc2603c-audio"),
 	MFD_CELL_OF_NAME("atc2603c-auxadc", "actions,atc2603c-auxadc"),
 	MFD_CELL_OF_NAME("atc2603c-battery", "actions,atc2603c-battery"),
+	MFD_CELL_OF_NAME("atc2603c-gpio", "actions,atc2603c-gpio"),
 };
 
 static void atc260x_prepare_pm_op(void)
