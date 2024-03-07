@@ -14,6 +14,7 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 9e7ab0bc3803af0eec0a9cba49bb6b5259d2e5e8cfab2e429a38e4971acea2a1  labrador-kernel5-aarch64-v01.tar.gz
 =======
 5d8354dad5d274304c6dd311f6ebe426dd47a9715d284067f9b938f7ded12c90  labrador-kernel5-aarch64-v01.tar.gz
@@ -48,6 +49,8 @@ f871633968a814e3cc5ebfbdaec1178610e12df70be8c10b07ac6f682ee0717c  labrador-kerne
 >>>>>>> e1317a1e1 (initial pmic  gpio support)
 =======
 >>>>>>> 8852de011 (fized gpiolib callbacks)
+=======
+>>>>>>> 3d996c241 (more fixes to the PMIC GPIO)
 f871633968a814e3cc5ebfbdaec1178610e12df70be8c10b07ac6f682ee0717c  labrador-kernel5-aarch64-v01.tar.gz
 =======
 fa7e1f5f8618fae1d4836d0450664f8adcd8946798eb5999f6d72a2b3161c70f  labrador-kernel5-aarch64-v01.tar.gz
@@ -133,4 +136,10 @@ c2f1068bff47287add46b7e7da1f1858c25264e7eb79fff42cb45344f62c7dd6  labrador-kerne
 =======
 5fefe790e1d32a6d84dde6c943d12a181a0514a4d21fdbe8e43e40fb4f563744  labrador-kernel5-aarch64-v01.tar.gz
 >>>>>>> 707858715 (fized gpiolib callbacks)
+<<<<<<< HEAD
 >>>>>>> 8852de011 (fized gpiolib callbacks)
+=======
+=======
+dacabd568c1cf51477e427ef51ab5efbd593505466e4ff7a983f852959aacb2a  labrador-kernel5-aarch64-v01.tar.gz
+>>>>>>> ab8928f04 (more fixes to the PMIC GPIO)
+>>>>>>> 3d996c241 (more fixes to the PMIC GPIO)
