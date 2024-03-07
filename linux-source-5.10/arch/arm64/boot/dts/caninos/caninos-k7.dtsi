@@ -572,7 +572,7 @@
 					status = "okay";
 				};
 
-				atc260x_gpio: atc260x_gpio {
+				atc260x_gpio: atc260x-gpio {
 					compatible = "actions,atc2603c-gpio";
 					gpio-controller;
 					#gpio-cells = <2>;
