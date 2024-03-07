@@ -36,7 +36,10 @@ static void atc260x_gpio_set_value(struct gpio_chip *gc, unsigned int offset, in
 	ret = atc260x_reg_setbits(chip->pmic, ATC2603C_GPIO_DAT, BIT(offset), value << offset); 
 	if(ret)
 		dev_err(chip->pmic->dev, "error writing registers"); */
+	
+
 	ret = atc260x_reg_setbits(chip->pmic, ATC2603C_PMU_SGPIO_CTL4, BIT(offset), value << offset);
+
 	if(ret)
 		dev_err(chip->pmic->dev, "error writing registers");
 
@@ -60,9 +63,9 @@ static int atc260x_gpio_get_direction(struct gpio_chip *gc, unsigned int offset)
  */
 	dev_info(chip->pmic->dev, "GPIO CTL3 value: %d\n", ctl3);
 
-	offset += 9;
+	offset += 2;
 
-	val = ~((ctl3 & (BIT(offset))) >> offset);
+	val = (ctl3 & BIT(offset)) >> offset;
 
 	//val = (outen & BIT(offset)) >> offset;
 
@@ -106,6 +109,8 @@ static int atc260x_gpio_direction_output(struct gpio_chip *gc, unsigned int offs
 	if(ret)
 		return ret; */
 
+	atc260x_gpio_set_value(gc, offset, value);
+
 	offset += 2;
 	ret = atc260x_reg_setbits(chip->pmic, ATC2603C_PMU_SGPIO_CTL3, BIT(offset), 0);
 	if(ret)
@@ -115,8 +120,6 @@ static int atc260x_gpio_direction_output(struct gpio_chip *gc, unsigned int offs
 	ret = atc260x_reg_setbits(chip->pmic, ATC2603C_PMU_SGPIO_CTL3, BIT(offset), BIT(offset));
 	if(ret)
 		return ret;
-
-	atc260x_gpio_set_value(gc, offset, value);
 
 	return 0;
 }
@@ -152,6 +155,12 @@ static int atc260x_gpio_probe(struct platform_device *pdev) {
 	gc->base = -1;
 	
 /*  ret = atc260x_reg_setbits(chip->pmic, ATC2603C_MFP_CTL, 0x0180, 0x0080);
+	if(ret){
+		dev_err(&pdev->dev, "error writing registers");
+		return ret;
+	}
+ */ 
+	/* ret = atc260x_reg_setbits(chip->pmic, ATC2603C_PMU_LDO11_CTL, BIT(12), 0);
 	if(ret){
 		dev_err(&pdev->dev, "error writing registers");
 		return ret;
