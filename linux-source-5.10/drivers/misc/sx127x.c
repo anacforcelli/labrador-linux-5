@@ -965,9 +965,12 @@ static void sx127x_rx_work(struct work_struct *work){
 	mutex_lock(&data->mutex);
 
 	while(1){
+		msleep(10);
 		count++;
 		if (count > 100){
 			dev_warn(data->chardevice, "Timeout reached");
+			kfifo_in(&data->out, "\0", sizeof("\0"));
+			wake_up(&data->readwq);
 			break;
 		}
 
