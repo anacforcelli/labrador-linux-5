@@ -78,6 +78,7 @@
 			txen-gpios = <&atc260x_gpio 4 GPIO_ACTIVE_HIGH>;
 			xtal = <32000000>;
 			pa-boost;
+			txrxswitch-gpios = <&atc260x_gpio 4 GPIO_ACTIVE_HIGH>;
 			status = "okay";
 		};
 	};

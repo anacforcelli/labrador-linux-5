@@ -143,13 +143,19 @@ static int atc260x_gpio_probe(struct platform_device *pdev) {
 	gc->get_direction = atc260x_gpio_get_direction;
 	gc->request = gpiochip_generic_request;
 	gc->free = gpiochip_generic_free;
+<<<<<<<< HEAD:linux-source-5.10/drivers/mfd/atc260x-gpio.c
 	gc->of_xlate = atc260x_gpio_simple_xlate;
+========
+>>>>>>>> f9ddb486d (fix devicetrees and gpio driver position):linux-source-5.10/drivers/gpio/gpio-atc260x.c
 	gc->ngpio = ATC2603C_NGPIO;
 	gc->label = "atc260x-gpio";
 	gc->base = -1;
 	gc->parent = chip->pmic->dev;
 	gc->owner = THIS_MODULE;
+<<<<<<<< HEAD:linux-source-5.10/drivers/mfd/atc260x-gpio.c
 	gc->can_sleep = false;
+========
+>>>>>>>> f9ddb486d (fix devicetrees and gpio driver position):linux-source-5.10/drivers/gpio/gpio-atc260x.c
 	
 	ret = devm_gpiochip_add_data(&pdev->dev, gc, chip);
 	if(ret){

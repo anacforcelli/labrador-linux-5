@@ -16,6 +16,7 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 9e7ab0bc3803af0eec0a9cba49bb6b5259d2e5e8cfab2e429a38e4971acea2a1  labrador-kernel5-aarch64-v01.tar.gz
 =======
 5d8354dad5d274304c6dd311f6ebe426dd47a9715d284067f9b938f7ded12c90  labrador-kernel5-aarch64-v01.tar.gz
@@ -54,6 +55,8 @@ f871633968a814e3cc5ebfbdaec1178610e12df70be8c10b07ac6f682ee0717c  labrador-kerne
 >>>>>>> 3d996c241 (more fixes to the PMIC GPIO)
 =======
 >>>>>>> b5b35af44 (corrected timeout condition and added base 2.1 lora p2p)
+=======
+>>>>>>> f9ddb486d (fix devicetrees and gpio driver position)
 f871633968a814e3cc5ebfbdaec1178610e12df70be8c10b07ac6f682ee0717c  labrador-kernel5-aarch64-v01.tar.gz
 =======
 fa7e1f5f8618fae1d4836d0450664f8adcd8946798eb5999f6d72a2b3161c70f  labrador-kernel5-aarch64-v01.tar.gz
@@ -151,4 +154,10 @@ dacabd568c1cf51477e427ef51ab5efbd593505466e4ff7a983f852959aacb2a  labrador-kerne
 =======
 a24ee81b99fa43ab3556f154d02b29c7b2f1589d13d8dcf0cc4c2da0639117fe  labrador-kernel5-aarch64-v01.tar.gz
 >>>>>>> 336400c9f (corrected timeout condition and added base 2.1 lora p2p)
+<<<<<<< HEAD
 >>>>>>> b5b35af44 (corrected timeout condition and added base 2.1 lora p2p)
+=======
+=======
+e9a10d5a261f9b6e148c352a196cbcae49913943f5a07a983de287afc0b25215  labrador-kernel5-aarch64-v01.tar.gz
+>>>>>>> b54b312d4 (fix devicetrees and gpio driver position)
+>>>>>>> f9ddb486d (fix devicetrees and gpio driver position)
