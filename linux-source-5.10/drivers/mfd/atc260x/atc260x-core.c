@@ -25,8 +25,6 @@
 #include <linux/mfd/core.h>
 #include <linux/mfd/atc260x/atc260x.h>
 
-#include "atc260x-core.h"
-
 int atc260x_reg_setbits(struct atc260x_dev *atc260x,
                         uint reg, u16 msk, u16 val)
 {

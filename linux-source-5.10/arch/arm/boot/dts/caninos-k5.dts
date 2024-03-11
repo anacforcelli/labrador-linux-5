@@ -42,12 +42,13 @@
 		status = "okay";
 
 		lora@0 {
-			compatible = "linux,spidev";
-			spi-max-frequency = <80000000>;
+			compatible = "caninos,sx1272-simple";
 			reg = <0>;
-			// reset = pmic sgpio 4 @ base 2.1, gpio expander p0 @ base 3.1
-			// dio0 = gpiob 11
-			// txrx = NC @ base2.1; pmic sgpio4 @ base 3.1
+			reset-GPIOS = <&atc260x_gpio 4 GPIO_ACTIVE_HIGH>;
+			dio0-gpios = <&gpiob 11 GPIO_ACTIVE_HIGH>;
+			pa-boost;
+			xtal = <32000000>;
+			status = "okay";
 		};
 	};
 };

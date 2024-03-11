@@ -27,8 +27,6 @@
 #include <linux/dma-mapping.h>
 #include <asm/system_misc.h>
 
-#include "atc260x-core.h"
-
 #define MFD_CELL_OF_NAME(_name, _compat) \
 	{ .name = _name, .of_compatible = _compat, }
 

@@ -1,5 +1,5 @@
-#include "atc260x-core.h"
 #include <linux/mfd/atc260x/regs_map_atc2603c.h>
+#include <linux/mfd/atc260x/atc260x.h>
 #include <linux/gpio/driver.h>
 #include <linux/module.h>
 #include <linux/of_platform.h>
@@ -13,7 +13,7 @@ struct atc260x_gpio {
 
 static int atc260x_gpio_get_value(struct gpio_chip *gc, unsigned int offset) {
 	struct atc260x_gpio *chip = gpiochip_get_data(gc);
-	u16 gpiodat, ctl4;
+	u16 ctl4;
 	int val;
 
 	ctl4 = atc260x_reg_read(chip->pmic, ATC2603C_PMU_SGPIO_CTL4);
@@ -25,7 +25,7 @@ static int atc260x_gpio_get_value(struct gpio_chip *gc, unsigned int offset) {
 
 static void atc260x_gpio_set_value(struct gpio_chip *gc, unsigned int offset, int value) {
 	struct atc260x_gpio *chip = gpiochip_get_data(gc);
-	u16 gpiodat, ctl4;
+	u16 ctl4;
 	int ret;
 	ret = atc260x_reg_setbits(chip->pmic, ATC2603C_PMU_SGPIO_CTL4, BIT(offset), value << offset);
 
@@ -39,7 +39,7 @@ static void atc260x_gpio_set_value(struct gpio_chip *gc, unsigned int offset, in
 
 static int atc260x_gpio_get_direction(struct gpio_chip *gc, unsigned int offset) { //Gets the direction of the GPIO pin
 	struct atc260x_gpio *chip = gpiochip_get_data(gc);
-	u16 outen, inen, ctl3, val;
+	u16 ctl3, val;
 
 	ctl3 = atc260x_reg_read(chip->pmic, ATC2603C_PMU_SGPIO_CTL3);
 	dev_dbg(chip->pmic->dev, "GPIO CTL3 value: %d\n", ctl3);
@@ -112,9 +112,13 @@ static int atc260x_gpio_probe(struct platform_device *pdev) {
 	gc->get = atc260x_gpio_get_value;
 	gc->set = atc260x_gpio_set_value;
 	gc->get_direction = atc260x_gpio_get_direction;
+	gc->request = gpiochip_generic_request;
+	gc->free = gpiochip_generic_free;
 	gc->ngpio = ATC2603C_NGPIO;
 	gc->label = "PMICGPIO";
 	gc->base = -1;
+	gc->parent = chip->pmic->dev;
+	gc->owner = THIS_MODULE;
 	
 	ret = devm_gpiochip_add_data(&pdev->dev, gc, chip);
 	if(ret){
@@ -130,7 +134,7 @@ static int atc260x_gpio_probe(struct platform_device *pdev) {
 
 	dev_info(&pdev->dev, "probe finished");
 
-    return ret;
+    return 0;
 }
 
 static int atc260x_gpio_remove (struct platform_device *pdev){

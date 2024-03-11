@@ -2,5 +2,4 @@
 obj-$(CONFIG_MFD_ATC260X) += atc260x-core.o atc260x-i2c.o
 obj-$(CONFIG_MFD_ATC260X_AUXADC) += atc260x-auxadc.o
 obj-$(CONFIG_MFD_ATC260X_BATTERY) += atc260x-battery.o
-obj-$(CONFIG_MFD_ATC260X_GPIO) += atc260x-gpio.o
 

@@ -167,6 +167,12 @@ config GPIO_ATH79
 	  Select this option to enable GPIO driver for
 	  Atheros AR71XX/AR724X/AR913X SoC devices.
 
+config GPIO_ATC260X
+	tristate "ATC260x PMICs GPIO"
+	depends on MFD_ATC260X
+	help
+	  Support for Actions' ATC260x GPIO.
+
 config GPIO_RASPBERRYPI_EXP
 	tristate "Raspberry Pi 3 GPIO Expander"
 	default RASPBERRYPI_FIRMWARE
