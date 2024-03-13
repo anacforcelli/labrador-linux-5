@@ -190,7 +190,7 @@ static int atc260x_i2c_probe(struct i2c_client *i2c,
 		return ret;
 	}
 	
-	ret = devm_mfd_add_devices(&i2c->dev, 0, sc_atc2603c_cells,
+	ret = devm_mfd_add_devices(&i2c->dev, PLATFORM_DEVID_AUTO, sc_atc2603c_cells,
 	                           ARRAY_SIZE(sc_atc2603c_cells),
 	                           NULL, 0, NULL);
 	

@@ -1302,16 +1302,17 @@ static int sx127x_probe(struct spi_device *spi){
 		goto err_allocoutfifo;
 	}
 
-	data->gpio_reset = devm_gpiod_get(&spi->dev, "reset", 0);
-	if(IS_ERR(data->gpio_reset)){
-		dev_err(&spi->dev, "reset gpio is required");
-		ret = -ENOMEM;
-		goto err_resetgpio;
-	}
-
 	data->model = (enum sx127x_model) of_device_get_match_data(&spi->dev);
-	
-	switch(data->model){
+
+	data->gpio_reset = devm_gpiod_get_optional(&spi->dev, "reset", 0);
+
+	if(IS_ERR(data->gpio_reset)) {
+		dev_warn(&spi->dev, "unable to get reset gpio, error code: %d", PTR_ERR(data->gpio_reset));
+		data->gpio_reset = NULL;
+	} else if(data->gpio_reset == NULL) {
+		dev_warn(&spi->dev, "reset gpio not used");
+	} else {
+		switch(data->model){
 		case(SX1272_3):
 			gpiod_set_value_cansleep(data->gpio_reset, 1);
 			udelay(500);
@@ -1326,6 +1327,7 @@ static int sx127x_probe(struct spi_device *spi){
 			break;
 		default:
 			break;
+		}
 	}
 
 	sx127x_reg_read(spi, SX127X_REG_VERSION, &version);
@@ -1343,38 +1345,23 @@ static int sx127x_probe(struct spi_device *spi){
 			goto err_chipid;
 	}
 
-	data->gpio_txen = devm_gpiod_get_index_optional(&spi->dev, "txrxswitch", 0, 0);
-	if(IS_ERR(data->gpio_txen)) {
-		switch(PTR_ERR(data->gpio_txen)) {
-		case(-EPROBE_DEFER):
-			return -EPROBE_DEFER;
-		default:
-			dev_info(&spi->dev, "no TX-enable GPIO, error code %ld\n", PTR_ERR(data->gpio_txen));
-			data->gpio_txen = NULL;
-			break;
-		}
-	} else if(data->gpio_txen == NULL) {
+	data->gpio_txen = devm_gpiod_get_optional(&spi->dev, "txen", 0);
+	if(IS_ERR(data->gpio_txen)){
+		dev_info(&spi->dev, "unable to get TX-enable GPIO, error code %ld\n", PTR_ERR(data->gpio_txen));
+		data->gpio_txen = NULL;
+	} else if(data->gpio_txen == NULL)
 		dev_info(&spi->dev, "TX-enable GPIO not used\n");
-	} else {
+	else 
 		dev_info(&spi->dev, "TX-enable GPIO used\n");
-	}
 	
-	data->gpio_rxen = devm_gpiod_get_index_optional(&spi->dev, "txrxswitch", 1, 0);
-	if(IS_ERR(data->gpio_rxen)) {
-		switch(PTR_ERR(data->gpio_rxen)) {
-		case(-EPROBE_DEFER):
-			return -EPROBE_DEFER;
-		default:
-			dev_info(&spi->dev, "no RX-enable GPIO, error code %ld\n", PTR_ERR(data->gpio_rxen));
-			data->gpio_rxen = NULL;
-			break;
-		}
-	} else if(data->gpio_rxen == NULL) {
+	data->gpio_rxen = devm_gpiod_get_optional(&spi->dev, "rxen", 0);
+	if(IS_ERR(data->gpio_rxen)){
+		dev_info(&spi->dev, "unable to get RX-enable GPIO, error code %ld\n", PTR_ERR(data->gpio_rxen));
+		data->gpio_rxen = NULL;
+	} else if(data->gpio_rxen == NULL)
 		dev_info(&spi->dev, "RX-enable GPIO not used\n");
-	} else {
+	else
 		dev_info(&spi->dev, "RX-enable GPIO used\n");
-	}
-	
 
 	irq = irq_of_parse_and_map(spi->dev.of_node, 0);
 	if (!irq) {
@@ -1427,7 +1414,11 @@ static int sx127x_probe(struct spi_device *spi){
 	ret = device_create_file(data->chardevice, &dev_attr_payloadLength);
 
 	//TODO set to defult values
-
+	sx127x_setopmode(data, SX127X_OPMODE_STANDBY, true);
+	sx127x_setmodulation(data, SX127X_MODULATION_LORA);
+	sx127x_setpaoutput(data, SX127X_PA_PABOOST);
+	sx127x_setoutputpower(data, 20);
+	
 	return 0;
 
 	err_sysfs:

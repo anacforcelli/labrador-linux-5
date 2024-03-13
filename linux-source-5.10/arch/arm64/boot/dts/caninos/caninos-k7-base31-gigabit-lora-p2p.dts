@@ -75,13 +75,12 @@
 			reg = <1>;
 			reset-gpios = <&exgpio 0 GPIO_ACTIVE_LOW>;
 			dio0-gpios = <&gpiob 11 GPIO_ACTIVE_HIGH>;
+			txen-gpios = <&atc260x_gpio 4 GPIO_ACTIVE_HIGH>;
 			xtal = <32000000>;
 			pa-boost;
-			txrxswitch-gpios = <&atc260x_gpio 4 GPIO_ACTIVE_HIGH>;
 			status = "okay";
 		};
 	};
-
 };
 
 &i2c2 {

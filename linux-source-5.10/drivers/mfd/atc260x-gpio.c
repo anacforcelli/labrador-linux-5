@@ -86,6 +86,35 @@ static int atc260x_gpio_direction_output(struct gpio_chip *gc, unsigned int offs
 	return 0;
 }
 
+static int atc260x_gpio_simple_xlate(struct gpio_chip *gc,
+				const struct of_phandle_args *gpiospec,
+				u32 *flags)
+{
+	/*
+	 * We're discouraging gpio_cells < 2, since that way you'll have to
+	 * write your own xlate function (that will have to retrieve the GPIO
+	 * number and the flags from a single gpio cell -- this is possible,
+	 * but not recommended).
+	 */
+	if (gc->of_gpio_n_cells < 2) {
+		WARN_ON(1);
+		return -EINVAL;
+	}
+
+	if (WARN_ON(gpiospec->args_count < gc->of_gpio_n_cells))
+		return -EINVAL;
+
+	if (gpiospec->args[0] >= gc->ngpio)
+		return -EINVAL;
+
+	if (flags)
+		*flags = gpiospec->args[1];
+
+	dev_info(gc->parent, "line %d got from dt", (int) gpiospec->args[0]);
+
+	return gpiospec->args[0];
+}
+
 
 static int atc260x_gpio_probe(struct platform_device *pdev) {
     int ret;
@@ -114,11 +143,13 @@ static int atc260x_gpio_probe(struct platform_device *pdev) {
 	gc->get_direction = atc260x_gpio_get_direction;
 	gc->request = gpiochip_generic_request;
 	gc->free = gpiochip_generic_free;
+	gc->of_xlate = atc260x_gpio_simple_xlate;
 	gc->ngpio = ATC2603C_NGPIO;
-	gc->label = "PMICGPIO";
+	gc->label = "atc260x-gpio";
 	gc->base = -1;
 	gc->parent = chip->pmic->dev;
 	gc->owner = THIS_MODULE;
+	gc->can_sleep = false;
 	
 	ret = devm_gpiochip_add_data(&pdev->dev, gc, chip);
 	if(ret){
@@ -150,6 +181,12 @@ static const struct of_device_id atc260x_gpio_of_match[] = {
 };
 MODULE_DEVICE_TABLE(of, atc260x_gpio_of_match);
 
+static const struct platform_device_id atc260x_gpio_id_table[] = {
+	{ "atc2603c-gpio", },
+	{ /* sentinel */ }
+};
+MODULE_DEVICE_TABLE(platform, atc260x_gpio_id_table);
+
 static struct platform_driver atc260x_gpio_driver = {
 	.probe = atc260x_gpio_probe,
 	.remove = atc260x_gpio_remove,
@@ -158,6 +195,7 @@ static struct platform_driver atc260x_gpio_driver = {
 		.owner = THIS_MODULE,
 		.of_match_table = atc260x_gpio_of_match,
 	},
+	.id_table = atc260x_gpio_id_table,
 }; 
 
 module_platform_driver(atc260x_gpio_driver);

@@ -44,7 +44,7 @@
 		lora@0 {
 			compatible = "caninos,sx1272-simple";
 			reg = <0>;
-			reset-GPIOS = <&atc260x_gpio 4 GPIO_ACTIVE_HIGH>;
+			reset-gpios = <&atc260x_gpio 4 GPIO_ACTIVE_HIGH>;
 			dio0-gpios = <&gpiob 11 GPIO_ACTIVE_HIGH>;
 			pa-boost;
 			xtal = <32000000>;

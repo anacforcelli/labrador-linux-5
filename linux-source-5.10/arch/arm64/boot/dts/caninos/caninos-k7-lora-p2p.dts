@@ -68,8 +68,8 @@
 			reg = <0>;
 			reset-gpios = <&atc260x_gpio 4 GPIO_ACTIVE_HIGH>;
 			dio0-gpios = <&gpiob 11 GPIO_ACTIVE_HIGH>;
-			pa-boost;
 			xtal = <32000000>;
+			pa-boost;
 			status = "okay";
 		};
 	};
