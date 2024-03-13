@@ -202,7 +202,7 @@ config MFD_ATC260X_BATTERY
 	  Support for ATC260x PMICs battery charging.
 
 config MFD_ATC260X_GPIO
-	bool "ATC260x PMICs Battery Charging"
+	bool "ATC260x PMICs GPIO"
 	depends on MFD_ATC260X
 	select GPIOLIB
 	select GPIOLIB_OF
