@@ -61,8 +61,6 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 
-		max-speed = <100000>;
-
 		sx1272: spi@0 {
 			compatible = "caninos,sx1272-simple";
 			reg = <0>;

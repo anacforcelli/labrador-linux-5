@@ -325,7 +325,7 @@ static int sx127x_setopmode(struct sx127x *data, enum sx127x_opmode mode, bool r
 			sx127x_toggletxrxen(data, true);
 			break;
 		case SX127X_OPMODE_RX:
-		case SX127X_OPMODE_RXCONTINUOS:
+		case SX127X_OPMODE_RXCONTINUOUS:
 		case SX127X_OPMODE_RXSINGLE:
 			diomapping1 |= SX127X_REG_DIOMAPPING1_DIO0_RXDONE;
 			sx127x_toggletxrxen(data, false);
@@ -913,7 +913,7 @@ static irqreturn_t sx127x_irq(int irq, void *dev_id)
 }
 
 
-static void sx127x_tx_work(struct work_struct *work) // Halts code execution while tx messages are being sent, returns once job is finished or errors out.
+static void sx127x_tx_work(struct work_struct *work)
 {
 	struct sx127x *data = container_of(work, struct sx127x, tx_work);
 	int counter = 0, ret;
@@ -921,7 +921,6 @@ static void sx127x_tx_work(struct work_struct *work) // Halts code execution whi
 	struct spi_device* spi  = data->spidevice;
 	while(1)
 	{
-		msleep(10);
 		if (counter > 100) {
 			data->tx_err = -ETIMEDOUT;
 			dev_info(data->chardevice, "TX error: %d \n", data->tx_err);
@@ -931,6 +930,7 @@ static void sx127x_tx_work(struct work_struct *work) // Halts code execution whi
 		}
 
 		ret = gpiod_get_value_cansleep(data->gpio_dio0);
+		sx127x_reg_read(spi , SX127X_REG_LORA_IRQFLAGS, &irqflags);
 
 		if (ret < 0) {
 			data->transmitted = 1;
@@ -939,42 +939,30 @@ static void sx127x_tx_work(struct work_struct *work) // Halts code execution whi
 			wake_up(&data->writewq);
 			return;
 		}
-		if (!ret)
-			continue;
-
-		sx127x_reg_read(spi , SX127X_REG_LORA_IRQFLAGS, &irqflags);
-
-		if(irqflags & SX127X_REG_LORA_IRQFLAGS_TXDONE) {
-			if(data->gpio_txen)
-				gpiod_set_value(data->gpio_txen, 0);			
-			dev_info(data->chardevice, "transmitted packet\n");
-			data->transmitted = 1;
-			wake_up(&data->writewq);
-			return;
+		else if (!ret){
+			if(irqflags & SX127X_REG_LORA_IRQFLAGS_TXDONE) {
+				if(data->gpio_txen)
+					gpiod_set_value(data->gpio_txen, 0);			
+				dev_info(data->chardevice, "transmitted packet\n");
+				data->transmitted = 1;
+				wake_up(&data->writewq);
+				return;
+			}
 		}
-
 		counter++;
+		msleep(10);
 	}
 }
 
 static void sx127x_rx_work(struct work_struct *work){
 	struct sx127x *data = container_of(work, struct sx127x, rx_work);
-	u8 irqflags, buf[128], len, snr, rssi, count = 0;
+	u8 irqflags, buf[128], len, snr, rssi;
 	u32 fei;
-	struct sx127x_pkt pkt;	
+	struct sx127x_pkt pkt;
 
 	mutex_lock(&data->mutex);
 
-	while(1){
-		msleep(10);
-		count++;
-		if (count > 100){
-			dev_info(data->chardevice, "Timeout reached");
-			kfifo_in(&data->out, "\0", sizeof("\0"));
-			wake_up(&data->readwq);
-			break;
-		}
-
+	while(data->open){
 		sx127x_reg_read(data->spidevice, SX127X_REG_LORA_IRQFLAGS, &irqflags);
 
 		if(irqflags & SX127X_REG_LORA_IRQFLAGS_RXDONE) {
@@ -1003,13 +991,14 @@ static void sx127x_rx_work(struct work_struct *work){
 
 			kfifo_in(&data->out, &pkt, sizeof(pkt));
 			kfifo_in(&data->out, buf, len);
-			wake_up(&data->readwq);
 			break;
-		} else
-			continue;
+		}
+
+		msleep(10);
 	}	
 
 	sx127x_reg_write(data->spidevice, SX127X_REG_LORA_IRQFLAGS, 0xff);
+	wake_up(&data->readwq);
 	mutex_unlock(&data->mutex);
 	return;
 }
@@ -1107,13 +1096,13 @@ static int sx127x_dev_open(struct inode *inode, struct file *file){
 	return status;
 }
 
-static ssize_t sx127x_dev_read(struct file *filp, char __user *buf, size_t count, loff_t *f_pos){
+static ssize_t sx127x_dev_read(struct file *filp, char __user *buf, size_t count, loff_t *f_pos) {
 	struct sx127x *data = filp->private_data;
 	unsigned copied;
 	ssize_t ret = 0;
 	
 	mutex_lock(&data->mutex);
-	sx127x_setopmode(data, SX127X_OPMODE_RXSINGLE, false);
+	sx127x_setopmode(data, SX127X_OPMODE_RXCONTINUOUS, false);
 	mutex_unlock(&data->mutex);
 
 	if(data->polling){
@@ -1163,7 +1152,7 @@ static int sx127x_dev_release(struct inode *inode, struct file *filp){
 	struct sx127x *data = filp->private_data;
 	mutex_lock(&data->mutex);
 	sx127x_setopmode(data, SX127X_OPMODE_STANDBY, true);
-	data->open = 0;
+	data->open = 0; 
 	kfifo_reset(&data->out);
 	mutex_unlock(&data->mutex);
 	return 0;
