@@ -336,7 +336,6 @@ static int sx127x_setopmode(struct sx127x *data, enum sx127x_opmode mode, bool r
 			sx127x_toggletxrxen(data, false);
 			break;
 		default:
-			dev_info(data->chardevice, "disabling rx and tx gpios\n");
 			if(data->gpio_rxen)
 				gpiod_set_value(data->gpio_rxen, 0);
 			if(data->gpio_txen)
@@ -447,6 +446,7 @@ static ssize_t sx127x_rssi_show(struct device *dev, struct device_attribute *att
 		lfmode = (opmode & SX127X_REG_OPMODE_LOWFREQUENCYMODEON) && SX127X_REG_OPMODE_LOWFREQUENCYMODEON;
 
 	sx127x_reg_read(data->spidevice, SX127X_REG_LORA_RSSIVALUE, &rssi);
+
 	if(!lfmode)
 		rssi += -157;
 	else
@@ -524,7 +524,7 @@ static ssize_t sx127x_bw_show(struct device *dev, struct device_attribute *attr,
 	mutex_lock(&data->mutex);
 	sx127x_reg_read(data->spidevice, SX127X_REG_LORA_MODEMCONFIG1, &config1);
 
-	bw = config1 >> SX1272_REG_LORA_MODEMCONFIG1_BW_SHIFT;
+	bw = config1 >> SX127X_REG_LORA_MODEMCONFIG1_BW_SHIFT;
 
 	if(bw > SX127X_REG_LORA_MODEMCONFIG1_BW_MAX){
 		ret = sprintf(buf, "invalid\n");
@@ -990,7 +990,7 @@ static void sx127x_rx_work(struct work_struct *work){
 				gpiod_set_value(data->gpio_rxen, 0);
 			}
 
-			kfifo_in(&data->out, &pkt, sizeof(pkt));
+			//kfifo_in(&data->out, &pkt, sizeof(pkt));
 			kfifo_in(&data->out, buf, len);
 			break;
 		}
@@ -1031,7 +1031,7 @@ static void sx127x_irq_work_handler(struct work_struct *work){
 			pkt.crcfail = 1;
 		}
 
-		kfifo_in(&data->out, &pkt, sizeof(pkt));
+		//kfifo_in(&data->out, &pkt, sizeof(pkt));
 		kfifo_in(&data->out, buf, len);
 		wake_up(&data->readwq);
 	}
@@ -1284,7 +1284,7 @@ static int sx127x_probe(struct spi_device *spi){
 	}
 
 	data->spidevice = spi;
-	data->opmode = SX127X_OPMODE_STANDBY;
+	data->opmode = SX127X_OPMODE_SLEEP;
 
 	ret = kfifo_alloc(&data->out, PAGE_SIZE, GFP_KERNEL);
 	if(ret){
@@ -1404,7 +1404,7 @@ static int sx127x_probe(struct spi_device *spi){
 	ret = device_create_file(data->chardevice, &dev_attr_payloadLength);
 
 	//TODO set to defult values
-	sx127x_setopmode(data, SX127X_OPMODE_STANDBY, true);
+	sx127x_setopmode(data, SX127X_OPMODE_SLEEP, true);
 	sx127x_setmodulation(data, SX127X_MODULATION_LORA);
 	sx127x_setpaoutput(data, SX127X_PA_PABOOST);
 	sx127x_setoutputpower(data, 20);
@@ -1428,6 +1428,8 @@ static int sx127x_probe(struct spi_device *spi){
 
 static int sx127x_remove(struct spi_device *spi){
 	struct sx127x *data = spi_get_drvdata(spi);
+
+	sx127x_setopmode(data, SX127X_OPMODE_SLEEP, true);
 
 	device_remove_file(data->chardevice, &dev_attr_modulation);
 	device_remove_file(data->chardevice, &dev_attr_opmode);
