@@ -53,10 +53,17 @@
 
 &emac {
 	phy-mode = "rmii";
-	max-speed = <100>;
+	status = "okay";
 
-	phy-power-gpio = <&gpiob 11 GPIO_ACTIVE_HIGH>;
-	phy-reset-gpio = <&gpiod 31 GPIO_ACTIVE_HIGH>; 
+	mdio {
+		reset-gpios = <&gpiod 31 GPIO_ACTIVE_LOW>;
+		reset-delay-us = <20000>;
+		reset-post-delay-us = <150000>;
+	};
+};
+
+&phy0 {
+	max-speed = <100>;
 };
 
 &mmc1 {

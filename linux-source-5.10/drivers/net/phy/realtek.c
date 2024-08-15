@@ -11,6 +11,7 @@
 #include <linux/phy.h>
 #include <linux/module.h>
 #include <linux/delay.h>
+#include <linux/of_device.h>
 
 #define RTL821x_PHYSR				0x11
 #define RTL821x_PHYSR_DUPLEX			BIT(13)
@@ -42,6 +43,7 @@
 
 #define RTL8201F_ISR				0x1e
 #define RTL8201F_IER				0x13
+#define RTL8201F_RMSR				0x10
 
 #define RTL8366RB_POWER_SAVE			0x15
 #define RTL8366RB_POWER_SAVE_ON			BIT(12)
@@ -104,9 +106,9 @@ static int rtl8201_config_intr(struct phy_device *phydev)
 	u16 val;
 
 	if (phydev->interrupts == PHY_INTERRUPT_ENABLED)
-		val = BIT(13) | BIT(12) | BIT(11);
+		val = BIT(4) | BIT(13) | BIT(12) | BIT(11);
 	else
-		val = 0;
+		val = BIT(4);
 
 	return phy_write_paged(phydev, 0x7, RTL8201F_IER, val);
 }
@@ -170,6 +172,48 @@ static int rtl8211_config_aneg(struct phy_device *phydev)
 
 	return 0;
 }
+
+
+static int rtl8201_config_init(struct phy_device *phydev)
+{
+	struct device *dev = &phydev->mdio.dev;
+	u32 tx_delay, rx_delay, rmsr;
+	int ret;
+
+	ret = of_property_read_u32(dev->of_node, "realtek,tx-delay", &tx_delay);
+
+	if (!ret && tx_delay <= 0xf)
+		dev_info(dev, "Using custom TX delay (0x%x)\n", tx_delay);
+	else
+		tx_delay = 0xf; /* use default tx delay */
+
+	ret = of_property_read_u32(dev->of_node, "realtek,rx-delay", &rx_delay);
+
+	if (!ret && rx_delay <= 0xf)
+		dev_info(dev, "Using custom RX delay (0x%x)\n", rx_delay);
+	else
+		rx_delay = 0xf; /* use default rx delay */
+
+	ret = phy_write_paged(phydev, 0x7, RTL8201F_IER, BIT(4));
+	if (ret)
+		return ret;
+
+	rmsr = 0x1008 | (rx_delay << 4) | (tx_delay << 8);
+	ret = phy_write_paged(phydev, 0x7, RTL8201F_RMSR, rmsr);
+	if (ret)
+		return ret;
+
+	ret = phy_clear_bits(phydev, 24, BIT(15));
+	if (ret)
+		return ret;
+
+	ret = phy_write_paged(phydev, 0x4, 16, 0x4077);
+	if (ret)
+		return ret;
+
+	return phy_write_paged(phydev, 0x7, 24, 0x1);
+}
+
 
 static int rtl8211c_config_init(struct phy_device *phydev)
 {
@@ -569,7 +613,7 @@ static int rtlgen_resume(struct phy_device *phydev)
 #define PHY_RTL8201F_RMSR_RMII_RX_OFFSET    (0xF<<4)
 #define PHY_RTL8201F_RMSR_RMII_TX_OFFSET    (0xF<<8)
 #define PHY_RTL8201F_PIN_LINK_STATE_CHANGE  (0x1<<4)
-
+/*
 static int rtl8201_config_init(struct phy_device *phydev)
 {
 	dev_info(&phydev->mdio.dev, "custom initalization of RTL8201F\n");
@@ -581,7 +625,7 @@ static int rtl8201_config_init(struct phy_device *phydev)
 	                       PHY_RTL8201F_RMSR_RMII_MODE | 
 	                       PHY_RTL8201F_RMSR_RMII_RX_OFFSET | 
 	                       PHY_RTL8201F_RMSR_RMII_TX_OFFSET);
-}
+}*/
 
 static struct phy_driver realtek_drvs[] = {
 	{

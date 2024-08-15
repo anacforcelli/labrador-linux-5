@@ -4,6 +4,8 @@
  *
  * Copyright (c) 2023 Caninos Loucos, ITEX/LSITEC
  * Copyright (c) 2023 Edgar Bernardi Righi <edgar.righi@lsitec.org.br>
+ * Copyright (c) 2021 Cristian Ciocaltea <cristian.ciocaltea@gmail.com>
+ * Copyright (c) 2012 Actions Semi Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -29,7 +31,7 @@
 
 #include "caninos-emac.h"
 
-#define DRIVER_NAME	"caninos-emac"
+#define DRIVER_NAME "caninos-emac"
 #define DRIVER_DESC "Caninos K5 Ethernet MAC Driver"
 
 static inline u32 owl_emac_reg_read(struct owl_emac_priv *priv, u32 reg)
@@ -71,11 +73,6 @@ static inline struct device *owl_emac_get_dev(struct owl_emac_priv *priv)
 {
 	return priv->netdev->dev.parent;
 }
-
-
-
-
-
 
 static void owl_emac_irq_enable(struct owl_emac_priv *priv)
 {
@@ -1574,7 +1571,8 @@ static int caninos_emac_probe(struct platform_device *pdev)
 	
 	priv = netdev_priv(netdev);
 	priv->netdev = netdev;
-	priv->msg_enable = netif_msg_init(-1, NETIF_MSG_DRV | NETIF_MSG_PROBE | NETIF_MSG_LINK);
+	priv->msg_enable = netif_msg_init(-1, NETIF_MSG_DRV | 
+	                                      NETIF_MSG_PROBE | NETIF_MSG_LINK);
 	
 	ret = of_get_phy_mode(dev->of_node, &priv->phy_mode);
 	
@@ -1696,7 +1694,7 @@ static int caninos_emac_probe(struct platform_device *pdev)
 	netdev->netdev_ops = &owl_emac_netdev_ops;
 	netdev->ethtool_ops = &owl_emac_ethtool_ops;
 	
-	netif_napi_add(netdev, &priv->napi, owl_emac_poll, NAPI_POLL_WEIGHT);
+	netif_napi_add(netdev, &priv->napi, owl_emac_poll);
 	
 	ret = devm_register_netdev(dev, netdev);
 	
